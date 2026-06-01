@@ -388,9 +388,15 @@ The deadband is dynamically adjusted by `SYS_SEN`:
 
 The academic paper detailing this project is included in this repository:
 
-[📕 **Paper.pdf**](./Paper.pdf) — Smart Flood Early Warning System: Design and Implementation on STM32
+<p align="center">
+  <a href="./Paper.pdf">
+    <img src="https://img.shields.io/badge/Download-PDF-red?style=for-the-badge&logo=adobeacrobatreader&logoColor=white"/>
+  </a>
+</p>
 
-<embed src="./Paper.pdf" type="application/pdf" width="100%" height="600px" style="border: 1px solid #ccc; border-radius: 4px;" />
+<object data="./Paper.pdf" type="application/pdf" width="100%" height="600px">
+  <p>Your browser does not support embedded PDFs. <a href="./Paper.pdf">Download the paper</a> instead.</p>
+</object>
 
 ---
 
