@@ -390,6 +390,8 @@ The academic paper detailing this project is included in this repository:
 
 [📕 **Paper.pdf**](./Paper.pdf) — Smart Flood Early Warning System: Design and Implementation on STM32
 
+<embed src="./Paper.pdf" type="application/pdf" width="100%" height="600px" style="border: 1px solid #ccc; border-radius: 4px;" />
+
 ---
 
 ## 🧪 Testing
