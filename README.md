@@ -390,13 +390,11 @@ The academic paper detailing this project is included in this repository:
 
 <p align="center">
   <a href="./Paper.pdf">
-    <img src="https://img.shields.io/badge/Download-PDF-red?style=for-the-badge&logo=adobeacrobatreader&logoColor=white"/>
+    <img src="https://img.shields.io/badge/Download%20Paper-PDF-red?style=for-the-badge&logo=adobeacrobatreader&logoColor=white"/>
   </a>
+  <br/><br/>
+  <a href="./Paper.pdf">📕 <b>Paper.pdf</b></a> — Smart Flood Early Warning System: Design and Implementation on STM32
 </p>
-
-<object data="./Paper.pdf" type="application/pdf" width="100%" height="600px">
-  <p>Your browser does not support embedded PDFs. <a href="./Paper.pdf">Download the paper</a> instead.</p>
-</object>
 
 ---
 
