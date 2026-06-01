@@ -108,6 +108,12 @@ Soil    ──► MovingAvg(8) ────────────────�
 
 ## 🧩 Hardware & Pinout
 
+<p align="center">
+  <img src="assets/circuit-breadboard.png" alt="Circuit Diagram on Breadboard" width="700"/>
+  <br/>
+  <em>Full system assembled on breadboard — STM32F103C8T6 with HC-SR04, DHT11, soil moisture sensor, OLED, keypad, LEDs, and buzzer</em>
+</p>
+
 | Component | Pin | Function |
 |-----------|-----|----------|
 | **HC-SR04 TRIG** | PA2 | Ultrasonic trigger output |
