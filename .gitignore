@@ -1,0 +1,24 @@
+# STM32CubeIDE Build Output
+Debug/
+Release/
+*.elf
+*.hex
+*.bin
+*.list
+*.map
+
+# IDE settings (user-specific)
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Backup / Temp
+*.bak
+*.orig
+*.zip
+Backups/
