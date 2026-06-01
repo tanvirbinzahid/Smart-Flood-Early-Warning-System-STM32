@@ -14,6 +14,7 @@
 </p>
 
 <p align="center">
+  <a href="#overview">Overview</a> •
   <a href="#features">Features</a> •
   <a href="#system-architecture">Architecture</a> •
   <a href="#hardware--pinout">Pinout</a> •
@@ -26,12 +27,14 @@
 
 ---
 
+<a name="overview"></a>
 ## 📋 Overview
 
 This project implements a **Smart Flood Early Warning System** using the STM32F103C8T6 microcontroller. It continuously monitors water levels via ultrasonic sensing, environmental conditions via DHT11, and soil moisture via an ADC sensor. A **composite Risk Index (0-100)** is computed in real-time and drives a 3-tier alert system (SAFE → WARNING → EVACUATE) with visual (LEDs, OLED) and audible (buzzer) outputs, all controllable via a 4x4 matrix keypad.
 
 ---
 
+<a name="features"></a>
 ## ✨ Features
 
 | # | Feature | Detail |
@@ -51,6 +54,7 @@ This project implements a **Smart Flood Early Warning System** using the STM32F1
 
 ---
 
+<a name="system-architecture"></a>
 ## 🏗️ System Architecture
 
 ```mermaid
@@ -106,6 +110,7 @@ Soil    ──► MovingAvg(8) ────────────────�
 
 ---
 
+<a name="hardware--pinout"></a>
 ## 🧩 Hardware & Pinout
 
 <p align="center">
@@ -149,6 +154,7 @@ Soil    ──► MovingAvg(8) ────────────────�
 
 ---
 
+<a name="risk-index-algorithm"></a>
 ## ⚙️ Risk Index Algorithm
 
 The composite Risk Index (0-100) is computed every 500ms:
@@ -209,6 +215,7 @@ cm
 
 ---
 
+<a name="keypad-controls"></a>
 ## ⌨️ Keypad Controls
 
 | Key | Function | Context |
@@ -268,6 +275,7 @@ cm
 
 ---
 
+<a name="project-structure"></a>
 ## 📁 Project Structure
 
 ```
@@ -307,6 +315,7 @@ Smart-Flooding-Detector-STM32/
 
 ---
 
+<a name="building--flashing"></a>
 ## 🏗️ Building & Flashing
 
 ### Prerequisites
@@ -374,6 +383,7 @@ The deadband is dynamically adjusted by `SYS_SEN`:
 
 ---
 
+<a name="paper"></a>
 ## 📄 Paper
 
 The academic paper detailing this project is included in this repository:
