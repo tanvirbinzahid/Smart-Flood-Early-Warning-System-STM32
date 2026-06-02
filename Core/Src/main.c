@@ -47,6 +47,7 @@ typedef struct {
     float    wl_min, wl_max;
     float    rr_min, rr_max;
     uint8_t  ri_min, ri_max;
+    uint8_t  soil_min, soil_max; // Add this line
 } Stats_t;
 
 typedef struct {
@@ -71,7 +72,7 @@ typedef struct {
 #define SYS_SEN_MAX     10u
 #define ULTRA_MIN_CM    2.0f
 #define ULTRA_MAX_CM    250.0f
-#define PSAVE_SECS      3600u
+#define PSAVE_SECS      40u
 #define SAMPLE_MS       500u
 #define PSAVE_MS        5000u
 #define DHT_SAMPLE_MS   2000u
@@ -187,7 +188,7 @@ static void        FormatFloat1(char *out, uint8_t out_size, float val);
 static void        FormatFloat2(char *out, uint8_t out_size, float val);
 static float       LeastSquaresSlope(RingBuf_t *rb);
 static AlertTier_t Classify(uint8_t ri, float trend);
-static void        Stats_Update(float wl, float rr, uint8_t ri);
+static void Stats_Update(float wl, float rr, uint8_t ri, uint8_t soil);
 static void        LED_SetTier(AlertTier_t tier);
 static void        Buzzer_Update(AlertTier_t tier);
 static char        Keypad_Scan(void);
@@ -430,7 +431,7 @@ static AlertTier_t Classify(uint8_t ri, float trend)
 }
 
 /* ── Session statistics update ── */
-static void Stats_Update(float wl, float rr, uint8_t ri)
+static void Stats_Update(float wl, float rr, uint8_t ri, uint8_t soil) // Added soil parameter
 {
     if (wl < stats.wl_min) stats.wl_min = wl;
     if (wl > stats.wl_max) stats.wl_max = wl;
@@ -438,34 +439,50 @@ static void Stats_Update(float wl, float rr, uint8_t ri)
     if (rr > stats.rr_max) stats.rr_max = rr;
     if (ri < stats.ri_min) stats.ri_min = ri;
     if (ri > stats.ri_max) stats.ri_max = ri;
+
+    // Add these lines
+    if (soil < stats.soil_min) stats.soil_min = soil;
+    if (soil > stats.soil_max) stats.soil_max = soil;
 }
 
 /* ── LED output ── */
 static void LED_SetTier(AlertTier_t tier)
 {
-    HAL_GPIO_WritePin(LED_PORT,
-        LED_GREEN | LED_Y1 | LED_Y2 | LED_R1 | LED_R2, GPIO_PIN_RESET);
+    /* 1. Reset: Turn off all 5 LEDs first */
+    HAL_GPIO_WritePin(LED_PORT, LED_GREEN | LED_Y1 | LED_Y2 | LED_R1 | LED_R2, GPIO_PIN_RESET);
 
-    uint16_t active_leds[5];
-    uint8_t count = 0;
 
-    /* Build sequence of LEDs that should be on based on risk */
-    if (risk_index >= 0)  active_leds[count++] = LED_GREEN;
-    if (risk_index >= 20) active_leds[count++] = LED_Y1;
-    if (risk_index >= 40) active_leds[count++] = LED_Y2;
-    if (risk_index >= 60) active_leds[count++] = LED_R1;
-    if (risk_index >= 80) active_leds[count++] = LED_R2;
+    /* NEW: If RI is stable (power_save == 1), keep LEDs off and exit */
+            if (power_save) {
+                return;
+            }
 
-    /* Software multiplexing: light one LED at a time per loop to fix
-       shared-resistor hardware voltage drop issues. The eye sees all of them on. */
-    static uint8_t mux_idx = 0;
-    mux_idx = (mux_idx + 1) % count;
 
-    if (tier == TIER_EVACUATE) {
-        if ((HAL_GetTick() / 125) % 2)
-            HAL_GPIO_WritePin(LED_PORT, active_leds[mux_idx], GPIO_PIN_SET); /* Danger: blink all active LEDs */
+    /* 2. Selection: Identify exactly ONE pin to use based on the current risk_index */
+    uint16_t target_led;
+
+    if (risk_index < 20) {
+        target_led = LED_GREEN;  // Risk 0-19%
+    } else if (risk_index < 40) {
+        target_led = LED_Y1;     // Risk 20-39%
+    } else if (risk_index < 60) {
+        target_led = LED_Y2;     // Risk 40-59%
+    } else if (risk_index < 80) {
+        target_led = LED_R1;     // Risk 60-79%
     } else {
-        HAL_GPIO_WritePin(LED_PORT, active_leds[mux_idx], GPIO_PIN_SET);     /* Normal: solid LEDs based on risk */
+        target_led = LED_R2;     // Risk 80-100%
+    }
+
+
+    /* 3. Action: Handle Emergency vs. Normal status */
+    if (tier == TIER_EVACUATE) {
+        /* Only that specific high-risk LED blinks (no other LEDs turn on) */
+        if ((HAL_GetTick() / 250) % 2) {
+            HAL_GPIO_WritePin(LED_PORT, target_led, GPIO_PIN_SET);
+        }
+    } else {
+        /* Only that specific LED stays solid */
+        HAL_GPIO_WritePin(LED_PORT, target_led, GPIO_PIN_SET);
     }
 }
 
@@ -753,22 +770,22 @@ static void OLED_SoilDryScreen(void)
 static void OLED_StatsScreen(void)
 {
     char buf[32];
-    char wl_min_txt[12], wl_max_txt[12], rr_min_txt[12], rr_max_txt[12], t_txt[12], h_txt[12];
+    char wl_min_txt[12], wl_max_txt[12], rr_min_txt[12], rr_max_txt[12];
 
-    OLED_ApplyDangerTheme();                 /* Stats page also flashes if the system reaches danger level */
+    OLED_ApplyDangerTheme();
     SSD1306_Fill(SSD1306_COLOR_BLACK);
 
     SSD1306_GotoXY(0, 0);
-    SSD1306_Puts("MIN/MAX  KEY 4", &Font_7x10, SSD1306_COLOR_WHITE); /* Dedicated keypad-4 min/max menu */
+    SSD1306_Puts("MIN/MAX  KEY 4", &Font_7x10, SSD1306_COLOR_WHITE);
 
-    FormatFloat1(wl_min_txt, sizeof(wl_min_txt), stats.wl_min); /* Convert min water level without %f */
-    FormatFloat1(wl_max_txt, sizeof(wl_max_txt), stats.wl_max); /* Convert max water level without %f */
+    FormatFloat1(wl_min_txt, sizeof(wl_min_txt), stats.wl_min);
+    FormatFloat1(wl_max_txt, sizeof(wl_max_txt), stats.wl_max);
     snprintf(buf, sizeof(buf), "WL:%s~%scm", wl_min_txt, wl_max_txt);
     SSD1306_GotoXY(0, 12);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    FormatFloat2(rr_min_txt, sizeof(rr_min_txt), stats.rr_min); /* Convert min rise rate without %f */
-    FormatFloat2(rr_max_txt, sizeof(rr_max_txt), stats.rr_max); /* Convert max rise rate without %f */
+    FormatFloat2(rr_min_txt, sizeof(rr_min_txt), stats.rr_min);
+    FormatFloat2(rr_max_txt, sizeof(rr_max_txt), stats.rr_max);
     snprintf(buf, sizeof(buf), "RR:%s~%s", rr_min_txt, rr_max_txt);
     SSD1306_GotoXY(0, 24);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
@@ -777,25 +794,20 @@ static void OLED_StatsScreen(void)
     SSD1306_GotoXY(0, 36);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    if (dht_ok) {
-        FormatFloat1(t_txt, sizeof(t_txt), temperature_c); /* Convert DHT temperature without %f */
-        FormatFloat1(h_txt, sizeof(h_txt), humidity_pct);  /* Convert DHT humidity without %f */
-        snprintf(buf, sizeof(buf), "T:%sC H:%s%%", t_txt, h_txt);
-    } else {
-        snprintf(buf, sizeof(buf), "DHT:ERR");
-    }
+    // REPLACE THE OLD DHT BLOCK WITH THIS SOIL BLOCK
+    snprintf(buf, sizeof(buf), "SOIL:%d%% ~ %d%%", stats.soil_min, stats.soil_max);
     SSD1306_GotoXY(0, 48);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
     SSD1306_GotoXY(0, 54);
-    SSD1306_Puts("[3]Next [2]Reset", &Font_7x10, SSD1306_COLOR_WHITE); /* Key 3 returns to summary page */
+    SSD1306_Puts("[3]Next [2]Reset", &Font_7x10, SSD1306_COLOR_WHITE);
 
     SSD1306_UpdateScreen();
 }
 
 /* ── Power save helpers ── */
-static void EnterPowerSave(void) { power_save = 1; }
-static void ExitPowerSave(void)  { power_save = 0; stable_secs = 0; }
+static void EnterPowerSave(void) { power_save = 1; SSD1306_OFF();}
+static void ExitPowerSave(void)  { power_save = 0; stable_secs = 0; SSD1306_ON();}
 
 /* Convert ultrasonic distance into water level (0..WL_DEPTH_CM). */
 static float WaterLevel_Display(float distance_cm)
@@ -886,6 +898,17 @@ int main(void)
     uint32_t now             = HAL_GetTick();
     uint32_t sample_interval = power_save ? PSAVE_MS : SAMPLE_MS;
 
+
+    // Inside the sensor sampling block of while(1)
+    float raw_wl = HCSR04_Read_cm();
+    if (raw_wl >= ULTRA_MIN_CM && raw_wl <= ULTRA_MAX_CM) {
+        // Push to moving average to smooth the 5-sample median even further
+        water_level_cm = WaterAvg_Push(raw_wl);
+    }
+
+    // Soil reading already uses a moving average in your function
+    soil_pct = Soil_Read();
+
     /* ── Sensor sampling ── */
     if (now - last_sample_ms >= sample_interval) {
         last_sample_ms = now;
@@ -934,11 +957,11 @@ int main(void)
         uint8_t hum_s = Normalise(humidity_pct,  60.0f, 95.0f);
         uint8_t tmp_s = Normalise(temperature_c, 25.0f, 35.0f);
 
-        risk_index = (uint8_t)(0.35f * (float)wl_s
+        risk_index = (uint8_t)(0.50f * (float)wl_s
+                             + 0.29f * (float)soil_pct
                              + 0.15f * (float)rr_s
-                             + 0.20f * (float)hum_s
-                             + 0.20f * (float)soil_pct
-                             + 0.10f * (float)tmp_s);
+                             + 0.03f * (float)hum_s
+                             + 0.03f * (float)tmp_s);
         if (risk_index > 100) risk_index = 100;
 
         /* Trend engine */
@@ -951,7 +974,7 @@ int main(void)
         /* Auto-unmute on escalation */
         if (current_tier > prev_tier) buzzer_muted = 0;
 
-        Stats_Update(water_level_display_cm, rise_rate_cms, risk_index);
+        Stats_Update(water_level_display_cm, rise_rate_cms, risk_index, soil_pct);
     }
 
     /* ── 1-second tick: power-save counter ── */
@@ -1016,6 +1039,7 @@ int main(void)
                 stats.wl_min = 999.0f;  stats.wl_max = 0.0f; /* Reset water-level min/max */
                 stats.rr_min = 999.0f;  stats.rr_max = 0.0f; /* Reset rise-rate min/max */
                 stats.ri_min = 255;     stats.ri_max = 0;    /* Reset risk-index min/max */
+                stats.soil_min = 255; stats.soil_max = 0;
             } else {
                 NVIC_SystemReset();                   /* On other pages, key 2 restarts the board */
             }
@@ -1271,10 +1295,17 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_8, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PA1 PA2 PA5 PA6
-                           PA7 PA8 PA9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6
-                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA2 PA5 PA6 PA7
+                           PA8 PA9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
+                          |GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

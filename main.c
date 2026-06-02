@@ -27,8 +27,15 @@
 /* USER CODE BEGIN PTD */
 typedef enum { TIER_SAFE = 0, TIER_WARNING = 1, TIER_EVACUATE = 2 } AlertTier_t;
 
-/* Keypad-selectable OLED pages. Key 3 swaps live pages; key 4 opens statistics. */
-typedef enum { SCREEN_MAIN = 0, SCREEN_SENSORS = 1, SCREEN_STATS = 2, SCREEN_SENSITIVITY = 3 } Screen_t;
+/* Keypad-selectable OLED pages. */
+typedef enum {
+    SCREEN_MAIN = 0,
+    SCREEN_SENSORS = 1,
+    SCREEN_STATS = 2,
+    SCREEN_SENSITIVITY = 3,
+    SCREEN_ULTRA_DB = 4,
+    SCREEN_SOIL_DRY = 5
+} Screen_t;
 
 typedef struct {
     uint8_t  buf[12];
@@ -40,6 +47,7 @@ typedef struct {
     float    wl_min, wl_max;
     float    rr_min, rr_max;
     uint8_t  ri_min, ri_max;
+    uint8_t  soil_min, soil_max; // Add this line
 } Stats_t;
 
 typedef struct {
@@ -64,10 +72,24 @@ typedef struct {
 #define SYS_SEN_MAX     10u
 #define ULTRA_MIN_CM    2.0f
 #define ULTRA_MAX_CM    250.0f
-#define PSAVE_SECS      3600u
+#define PSAVE_SECS      40u
 #define SAMPLE_MS       500u
 #define PSAVE_MS        5000u
 #define DHT_SAMPLE_MS   2000u
+
+/* Displayed water level is inverted using this depth */
+#define WL_DEPTH_CM     9.0f
+
+/* Ultrasonic deadband tuning (key 7/9) */
+#define ULTRA_DB_MIN    0.50f
+#define ULTRA_DB_MAX    3.00f
+#define ULTRA_DB_STEP   0.25f
+
+/* Soil dry calibration (key 8/0) */
+#define SOIL_WET_ADC    500u
+#define SOIL_DRY_MIN    500u
+#define SOIL_DRY_MAX    4095u
+#define SOIL_DRY_STEP   150u
 
 /* GPIO shortcuts */
 #define LED_GREEN  GPIO_PIN_5
@@ -113,6 +135,7 @@ TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
 static float        water_level_cm = 100.0f;
+static float        water_level_display_cm = 0.0f;
 static float        rise_rate_cms  = 0.0f;
 static float        temperature_c  = 0.0f;
 static float        humidity_pct   = 0.0f;
@@ -132,8 +155,12 @@ static uint8_t      power_save     = 0;
 static Screen_t     current_screen = SCREEN_MAIN;  /* Starts on summary page; keypad changes this */
 static uint8_t      buzzer_muted   = 0;
 static uint8_t      ultrasonic_ready = 0;           /* Becomes 1 after the first valid ultrasonic reading */
-static uint8_t      sys_sen        = 5;             /* System sensitivity: key 7 lowers, key 8 raises */
+static uint8_t      sys_sen        = 5;             /* System sensitivity: key 5 lowers, key 6 raises */
+static float        ultra_deadband_cm = 2.00f;      /* Ultrasonic deadband: key 7 lowers, key 9 raises */
+static uint16_t     soil_dry_adc   = 3500;          /* Soil dry calibration: key 8 lowers, key 0 raises */
 static uint32_t     sensitivity_screen_until = 0;   /* Time until the temporary SYS_SEN screen closes */
+static uint32_t     ultra_screen_until = 0;         /* Time until ultrasonic deadband screen closes */
+static uint32_t     soil_screen_until = 0;          /* Time until soil dry calibration screen closes */
 
 static uint32_t     last_sample_ms = 0;
 static uint32_t     last_dht_ms    = 0;
@@ -161,7 +188,7 @@ static void        FormatFloat1(char *out, uint8_t out_size, float val);
 static void        FormatFloat2(char *out, uint8_t out_size, float val);
 static float       LeastSquaresSlope(RingBuf_t *rb);
 static AlertTier_t Classify(uint8_t ri, float trend);
-static void        Stats_Update(float wl, float rr, uint8_t ri);
+static void Stats_Update(float wl, float rr, uint8_t ri, uint8_t soil);
 static void        LED_SetTier(AlertTier_t tier);
 static void        Buzzer_Update(AlertTier_t tier);
 static char        Keypad_Scan(void);
@@ -172,8 +199,11 @@ static void        OLED_MainScreen(void);
 static void        OLED_SensorScreen(void);
 static void        OLED_StatsScreen(void);
 static void        OLED_SensitivityScreen(void);
+static void        OLED_UltraDeadbandScreen(void);
+static void        OLED_SoilDryScreen(void);
 static void        EnterPowerSave(void);
 static void        ExitPowerSave(void);
+static float       WaterLevel_Display(float distance_cm);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -304,9 +334,13 @@ static uint8_t Soil_Read(void)
     uint16_t n   = soil_avg.filled ? 8 : (soil_avg.idx ? soil_avg.idx : 1);
     uint16_t avg = (uint16_t)(soil_avg.acc / n);
 
-    if (avg > 3500) avg = 3500;
-    if (avg < 500)  avg = 500;
-    return (uint8_t)(100 - ((avg - 500) * 100 / 3000));
+    uint16_t dry = soil_dry_adc;
+    if (dry <= SOIL_WET_ADC) dry = SOIL_WET_ADC + 1;
+
+    if (avg > dry) avg = dry;
+    if (avg < SOIL_WET_ADC) avg = SOIL_WET_ADC;
+
+    return (uint8_t)(100 - ((avg - SOIL_WET_ADC) * 100 / (dry - SOIL_WET_ADC)));
 }
 
 /* ── Normalise value [lo, hi] → [0, 100] ── */
@@ -397,7 +431,7 @@ static AlertTier_t Classify(uint8_t ri, float trend)
 }
 
 /* ── Session statistics update ── */
-static void Stats_Update(float wl, float rr, uint8_t ri)
+static void Stats_Update(float wl, float rr, uint8_t ri, uint8_t soil) // Added soil parameter
 {
     if (wl < stats.wl_min) stats.wl_min = wl;
     if (wl > stats.wl_max) stats.wl_max = wl;
@@ -405,34 +439,50 @@ static void Stats_Update(float wl, float rr, uint8_t ri)
     if (rr > stats.rr_max) stats.rr_max = rr;
     if (ri < stats.ri_min) stats.ri_min = ri;
     if (ri > stats.ri_max) stats.ri_max = ri;
+
+    // Add these lines
+    if (soil < stats.soil_min) stats.soil_min = soil;
+    if (soil > stats.soil_max) stats.soil_max = soil;
 }
 
 /* ── LED output ── */
 static void LED_SetTier(AlertTier_t tier)
 {
-    HAL_GPIO_WritePin(LED_PORT,
-        LED_GREEN | LED_Y1 | LED_Y2 | LED_R1 | LED_R2, GPIO_PIN_RESET);
+    /* 1. Reset: Turn off all 5 LEDs first */
+    HAL_GPIO_WritePin(LED_PORT, LED_GREEN | LED_Y1 | LED_Y2 | LED_R1 | LED_R2, GPIO_PIN_RESET);
 
-    uint16_t active_leds[5];
-    uint8_t count = 0;
 
-    /* Build sequence of LEDs that should be on based on risk */
-    if (risk_index >= 0)  active_leds[count++] = LED_GREEN;
-    if (risk_index >= 20) active_leds[count++] = LED_Y1;
-    if (risk_index >= 40) active_leds[count++] = LED_Y2;
-    if (risk_index >= 60) active_leds[count++] = LED_R1;
-    if (risk_index >= 80) active_leds[count++] = LED_R2;
+    /* NEW: If RI is stable (power_save == 1), keep LEDs off and exit */
+            if (power_save) {
+                return;
+            }
 
-    /* Software multiplexing: light one LED at a time per loop to fix 
-       shared-resistor hardware voltage drop issues. The eye sees all of them on. */
-    static uint8_t mux_idx = 0;
-    mux_idx = (mux_idx + 1) % count;
 
-    if (tier == TIER_EVACUATE) {
-        if ((HAL_GetTick() / 125) % 2)
-            HAL_GPIO_WritePin(LED_PORT, active_leds[mux_idx], GPIO_PIN_SET); /* Danger: blink all active LEDs */
+    /* 2. Selection: Identify exactly ONE pin to use based on the current risk_index */
+    uint16_t target_led;
+
+    if (risk_index < 20) {
+        target_led = LED_GREEN;  // Risk 0-19%
+    } else if (risk_index < 40) {
+        target_led = LED_Y1;     // Risk 20-39%
+    } else if (risk_index < 60) {
+        target_led = LED_Y2;     // Risk 40-59%
+    } else if (risk_index < 80) {
+        target_led = LED_R1;     // Risk 60-79%
     } else {
-        HAL_GPIO_WritePin(LED_PORT, active_leds[mux_idx], GPIO_PIN_SET);     /* Normal: solid LEDs based on risk */
+        target_led = LED_R2;     // Risk 80-100%
+    }
+
+
+    /* 3. Action: Handle Emergency vs. Normal status */
+    if (tier == TIER_EVACUATE) {
+        /* Only that specific high-risk LED blinks (no other LEDs turn on) */
+        if ((HAL_GetTick() / 250) % 2) {
+            HAL_GPIO_WritePin(LED_PORT, target_led, GPIO_PIN_SET);
+        }
+    } else {
+        /* Only that specific LED stays solid */
+        HAL_GPIO_WritePin(LED_PORT, target_led, GPIO_PIN_SET);
     }
 }
 
@@ -556,9 +606,9 @@ static void OLED_MainScreen(void)
     SSD1306_GotoXY(0, 0);
     SSD1306_Puts(tier_labels[current_tier], &Font_7x10, SSD1306_COLOR_WHITE);
 
-    FormatFloat1(wl_txt, sizeof(wl_txt), water_level_cm); /* Convert water level without using %f */
-    FormatFloat2(rr_txt, sizeof(rr_txt), rise_rate_cms);  /* Convert rise rate without using %f */
-    snprintf(buf, sizeof(buf), "WL:%scm R:%s", wl_txt, rr_txt); /* Bigger buffer avoids truncation warning */
+    FormatFloat1(wl_txt, sizeof(wl_txt), water_level_display_cm); /* Display inverted water level */
+    FormatFloat2(rr_txt, sizeof(rr_txt), rise_rate_cms);          /* Convert rise rate without using %f */
+    snprintf(buf, sizeof(buf), "WL:%scm R:%s", wl_txt, rr_txt);   /* Bigger buffer avoids truncation warning */
     SSD1306_GotoXY(0, 12);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
@@ -604,8 +654,8 @@ static void OLED_SensorScreen(void)
     SSD1306_GotoXY(0, 0);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    FormatFloat1(wl_txt, sizeof(wl_txt), water_level_cm); /* Convert water level without using %f */
-    snprintf(buf, sizeof(buf), "WL:%scm", wl_txt); /* HC-SR04 water distance */
+    FormatFloat1(wl_txt, sizeof(wl_txt), water_level_display_cm); /* Display inverted water level */
+    snprintf(buf, sizeof(buf), "WL:%scm", wl_txt); /* HC-SR04 water level */
     SSD1306_GotoXY(0, 12);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
@@ -654,10 +704,64 @@ static void OLED_SensitivityScreen(void)
     SSD1306_GotoXY(0, 32);
     SSD1306_Puts("5=LOW 6=HIGH", &Font_7x10, SSD1306_COLOR_WHITE); /* 5 also works for your keypad habit */
 
-    FormatFloat1(wl_txt, sizeof(wl_txt), water_level_cm); /* Convert water level without using %f */
+    FormatFloat1(wl_txt, sizeof(wl_txt), water_level_display_cm); /* Display inverted water level */
     snprintf(buf, sizeof(buf), "WL:%s RI:%3d", wl_txt, risk_index); /* Show live effect while tuning */
     SSD1306_GotoXY(0, 48);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_UpdateScreen();
+}
+
+/* Temporary screen shown after changing ultrasonic deadband. */
+static void OLED_UltraDeadbandScreen(void)
+{
+    char buf[32];
+    char db_txt[12], min_txt[12], max_txt[12];
+
+    OLED_ApplyDangerTheme();
+    SSD1306_Fill(SSD1306_COLOR_BLACK);
+
+    SSD1306_GotoXY(0, 0);
+    SSD1306_Puts("ULTRA DEADBAND", &Font_7x10, SSD1306_COLOR_WHITE);
+
+    FormatFloat2(db_txt, sizeof(db_txt), ultra_deadband_cm);
+    snprintf(buf, sizeof(buf), "DB:%scm", db_txt);
+    SSD1306_GotoXY(0, 16);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    FormatFloat2(min_txt, sizeof(min_txt), ULTRA_DB_MIN);
+    FormatFloat2(max_txt, sizeof(max_txt), ULTRA_DB_MAX);
+    snprintf(buf, sizeof(buf), "MIN:%s MAX:%s", min_txt, max_txt);
+    SSD1306_GotoXY(0, 32);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_GotoXY(0, 48);
+    SSD1306_Puts("7=LOW 9=HIGH", &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_UpdateScreen();
+}
+
+/* Temporary screen shown after changing soil dry calibration. */
+static void OLED_SoilDryScreen(void)
+{
+    char buf[32];
+
+    OLED_ApplyDangerTheme();
+    SSD1306_Fill(SSD1306_COLOR_BLACK);
+
+    SSD1306_GotoXY(0, 0);
+    SSD1306_Puts("SOIL DRY CAL", &Font_7x10, SSD1306_COLOR_WHITE);
+
+    snprintf(buf, sizeof(buf), "DRY:%4u", soil_dry_adc);
+    SSD1306_GotoXY(0, 16);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    snprintf(buf, sizeof(buf), "MIN:%u MAX:%u", SOIL_DRY_MIN, SOIL_DRY_MAX);
+    SSD1306_GotoXY(0, 32);
+    SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
+
+    SSD1306_GotoXY(0, 48);
+    SSD1306_Puts("8=LOW 0=HIGH", &Font_7x10, SSD1306_COLOR_WHITE);
 
     SSD1306_UpdateScreen();
 }
@@ -666,22 +770,22 @@ static void OLED_SensitivityScreen(void)
 static void OLED_StatsScreen(void)
 {
     char buf[32];
-    char wl_min_txt[12], wl_max_txt[12], rr_min_txt[12], rr_max_txt[12], t_txt[12], h_txt[12];
+    char wl_min_txt[12], wl_max_txt[12], rr_min_txt[12], rr_max_txt[12];
 
-    OLED_ApplyDangerTheme();                 /* Stats page also flashes if the system reaches danger level */
+    OLED_ApplyDangerTheme();
     SSD1306_Fill(SSD1306_COLOR_BLACK);
 
     SSD1306_GotoXY(0, 0);
-    SSD1306_Puts("MIN/MAX  KEY 4", &Font_7x10, SSD1306_COLOR_WHITE); /* Dedicated keypad-4 min/max menu */
+    SSD1306_Puts("MIN/MAX  KEY 4", &Font_7x10, SSD1306_COLOR_WHITE);
 
-    FormatFloat1(wl_min_txt, sizeof(wl_min_txt), stats.wl_min); /* Convert min water level without %f */
-    FormatFloat1(wl_max_txt, sizeof(wl_max_txt), stats.wl_max); /* Convert max water level without %f */
+    FormatFloat1(wl_min_txt, sizeof(wl_min_txt), stats.wl_min);
+    FormatFloat1(wl_max_txt, sizeof(wl_max_txt), stats.wl_max);
     snprintf(buf, sizeof(buf), "WL:%s~%scm", wl_min_txt, wl_max_txt);
     SSD1306_GotoXY(0, 12);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    FormatFloat2(rr_min_txt, sizeof(rr_min_txt), stats.rr_min); /* Convert min rise rate without %f */
-    FormatFloat2(rr_max_txt, sizeof(rr_max_txt), stats.rr_max); /* Convert max rise rate without %f */
+    FormatFloat2(rr_min_txt, sizeof(rr_min_txt), stats.rr_min);
+    FormatFloat2(rr_max_txt, sizeof(rr_max_txt), stats.rr_max);
     snprintf(buf, sizeof(buf), "RR:%s~%s", rr_min_txt, rr_max_txt);
     SSD1306_GotoXY(0, 24);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
@@ -690,25 +794,29 @@ static void OLED_StatsScreen(void)
     SSD1306_GotoXY(0, 36);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
-    if (dht_ok) {
-        FormatFloat1(t_txt, sizeof(t_txt), temperature_c); /* Convert DHT temperature without %f */
-        FormatFloat1(h_txt, sizeof(h_txt), humidity_pct);  /* Convert DHT humidity without %f */
-        snprintf(buf, sizeof(buf), "T:%sC H:%s%%", t_txt, h_txt);
-    } else {
-        snprintf(buf, sizeof(buf), "DHT:ERR");
-    }
+    // REPLACE THE OLD DHT BLOCK WITH THIS SOIL BLOCK
+    snprintf(buf, sizeof(buf), "SOIL:%d%% ~ %d%%", stats.soil_min, stats.soil_max);
     SSD1306_GotoXY(0, 48);
     SSD1306_Puts(buf, &Font_7x10, SSD1306_COLOR_WHITE);
 
     SSD1306_GotoXY(0, 54);
-    SSD1306_Puts("[3]Next [2]Reset", &Font_7x10, SSD1306_COLOR_WHITE); /* Key 3 returns to summary page */
+    SSD1306_Puts("[3]Next [2]Reset", &Font_7x10, SSD1306_COLOR_WHITE);
 
     SSD1306_UpdateScreen();
 }
 
 /* ── Power save helpers ── */
-static void EnterPowerSave(void) { power_save = 1; }
-static void ExitPowerSave(void)  { power_save = 0; stable_secs = 0; }
+static void EnterPowerSave(void) { power_save = 1; SSD1306_OFF();}
+static void ExitPowerSave(void)  { power_save = 0; stable_secs = 0; SSD1306_ON();}
+
+/* Convert ultrasonic distance into water level (0..WL_DEPTH_CM). */
+static float WaterLevel_Display(float distance_cm)
+{
+    float wl = WL_DEPTH_CM - distance_cm;
+    if (wl < 0.0f) wl = 0.0f;
+    if (wl > WL_DEPTH_CM) wl = WL_DEPTH_CM;
+    return wl;
+}
 
 /* USER CODE END 0 */
 
@@ -790,6 +898,17 @@ int main(void)
     uint32_t now             = HAL_GetTick();
     uint32_t sample_interval = power_save ? PSAVE_MS : SAMPLE_MS;
 
+
+    // Inside the sensor sampling block of while(1)
+    float raw_wl = HCSR04_Read_cm();
+    if (raw_wl >= ULTRA_MIN_CM && raw_wl <= ULTRA_MAX_CM) {
+        // Push to moving average to smooth the 5-sample median even further
+        water_level_cm = WaterAvg_Push(raw_wl);
+    }
+
+    // Soil reading already uses a moving average in your function
+    soil_pct = Soil_Read();
+
     /* ── Sensor sampling ── */
     if (now - last_sample_ms >= sample_interval) {
         last_sample_ms = now;
@@ -808,18 +927,19 @@ int main(void)
             float diff = raw_wl - water_level_cm;          /* Difference between new raw value and old stable value */
             float ultra_alpha = 0.20f + (0.08f * (float)sys_sen);       /* Higher SYS_SEN = faster ultrasonic response */
             if (ultra_alpha > 1.0f) ultra_alpha = 1.0f;
-            float ultra_deadband = 3.00f - (0.25f * (float)sys_sen);    /* Higher SYS_SEN = smaller ignored-change zone */
-            if (ultra_deadband < 0.50f) ultra_deadband = 0.50f;         /* Keep some noise protection even at max sensitivity */
-            if (diff > -ultra_deadband && diff < ultra_deadband) {
+            if (diff > -ultra_deadband_cm && diff < ultra_deadband_cm) {
                 raw_wl = water_level_cm;                   /* Ignore tiny ultrasonic noise/jitter */
             }
             water_level_cm += ultra_alpha * (raw_wl - water_level_cm); /* Filter strength is controlled by SYS_SEN */
         }
+
         if (now - last_dht_ms >= DHT_SAMPLE_MS) {           /* DHT11 needs slow reads; 2 seconds is safer than 500 ms */
             last_dht_ms = now;
             dht_ok = DHT11_Read(&temperature_c, &humidity_pct); /* Keep old values if read fails */
         }
         soil_pct = Soil_Read();
+
+        water_level_display_cm = WaterLevel_Display(water_level_cm);
 
         /* Rise rate (positive = water level rising toward sensor) */
         float dt_s    = (float)sample_interval / 1000.0f;
@@ -837,11 +957,11 @@ int main(void)
         uint8_t hum_s = Normalise(humidity_pct,  60.0f, 95.0f);
         uint8_t tmp_s = Normalise(temperature_c, 25.0f, 35.0f);
 
-        risk_index = (uint8_t)(0.35f * (float)wl_s
+        risk_index = (uint8_t)(0.50f * (float)wl_s
+                             + 0.29f * (float)soil_pct
                              + 0.15f * (float)rr_s
-                             + 0.20f * (float)hum_s
-                             + 0.20f * (float)soil_pct
-                             + 0.10f * (float)tmp_s);
+                             + 0.03f * (float)hum_s
+                             + 0.03f * (float)tmp_s);
         if (risk_index > 100) risk_index = 100;
 
         /* Trend engine */
@@ -854,7 +974,7 @@ int main(void)
         /* Auto-unmute on escalation */
         if (current_tier > prev_tier) buzzer_muted = 0;
 
-        Stats_Update(water_level_cm, rise_rate_cms, risk_index);
+        Stats_Update(water_level_display_cm, rise_rate_cms, risk_index, soil_pct);
     }
 
     /* ── 1-second tick: power-save counter ── */
@@ -875,19 +995,37 @@ int main(void)
 
     if (current_screen == SCREEN_SENSITIVITY &&
         sensitivity_screen_until != 0 &&
-        now > sensitivity_screen_until) {             /* Auto-return after showing SYS_SEN briefly */
+        now > sensitivity_screen_until) {
         current_screen = SCREEN_SENSORS;
         sensitivity_screen_until = 0;
     }
 
-    if (current_screen == SCREEN_MAIN) {              /* Page 1: short live summary */
+    if (current_screen == SCREEN_ULTRA_DB &&
+        ultra_screen_until != 0 &&
+        now > ultra_screen_until) {
+        current_screen = SCREEN_SENSORS;
+        ultra_screen_until = 0;
+    }
+
+    if (current_screen == SCREEN_SOIL_DRY &&
+        soil_screen_until != 0 &&
+        now > soil_screen_until) {
+        current_screen = SCREEN_SENSORS;
+        soil_screen_until = 0;
+    }
+
+    if (current_screen == SCREEN_MAIN) {
         OLED_MainScreen();
-    } else if (current_screen == SCREEN_SENSORS) {    /* Page 2: all live sensor readings */
+    } else if (current_screen == SCREEN_SENSORS) {
         OLED_SensorScreen();
-    } else if (current_screen == SCREEN_STATS) {      /* Page 3: min/max statistics */
+    } else if (current_screen == SCREEN_STATS) {
         OLED_StatsScreen();
-    } else {                                          /* Temporary page: sensitivity adjustment */
+    } else if (current_screen == SCREEN_SENSITIVITY) {
         OLED_SensitivityScreen();
+    } else if (current_screen == SCREEN_ULTRA_DB) {
+        OLED_UltraDeadbandScreen();
+    } else {
+        OLED_SoilDryScreen();
     }
 
     /* ── Keypad ── */
@@ -901,6 +1039,7 @@ int main(void)
                 stats.wl_min = 999.0f;  stats.wl_max = 0.0f; /* Reset water-level min/max */
                 stats.rr_min = 999.0f;  stats.rr_max = 0.0f; /* Reset rise-rate min/max */
                 stats.ri_min = 255;     stats.ri_max = 0;    /* Reset risk-index min/max */
+                stats.soil_min = 255; stats.soil_max = 0;
             } else {
                 NVIC_SystemReset();                   /* On other pages, key 2 restarts the board */
             }
@@ -920,6 +1059,30 @@ int main(void)
             if (sys_sen < SYS_SEN_MAX) sys_sen++;          /* Key 6 raises sensitivity if it is below maximum */
             current_screen = SCREEN_SENSITIVITY;            /* Show SYS_SEN screen immediately after changing it */
             sensitivity_screen_until = HAL_GetTick() + 2000u; /* Keep sensitivity screen visible for 2 seconds */
+            break;
+        case '7':
+            if (ultra_deadband_cm > ULTRA_DB_MIN) ultra_deadband_cm -= ULTRA_DB_STEP;
+            if (ultra_deadband_cm < ULTRA_DB_MIN) ultra_deadband_cm = ULTRA_DB_MIN;
+            current_screen = SCREEN_ULTRA_DB;
+            ultra_screen_until = HAL_GetTick() + 2000u;
+            break;
+        case '9':
+            if (ultra_deadband_cm < ULTRA_DB_MAX) ultra_deadband_cm += ULTRA_DB_STEP;
+            if (ultra_deadband_cm > ULTRA_DB_MAX) ultra_deadband_cm = ULTRA_DB_MAX;
+            current_screen = SCREEN_ULTRA_DB;
+            ultra_screen_until = HAL_GetTick() + 2000u;
+            break;
+        case '8':
+            if (soil_dry_adc > SOIL_DRY_MIN) soil_dry_adc -= SOIL_DRY_STEP;
+            if (soil_dry_adc < SOIL_DRY_MIN) soil_dry_adc = SOIL_DRY_MIN;
+            current_screen = SCREEN_SOIL_DRY;
+            soil_screen_until = HAL_GetTick() + 2000u;
+            break;
+        case '0':
+            if (soil_dry_adc < SOIL_DRY_MAX) soil_dry_adc += SOIL_DRY_STEP;
+            if (soil_dry_adc > SOIL_DRY_MAX) soil_dry_adc = SOIL_DRY_MAX;
+            current_screen = SCREEN_SOIL_DRY;
+            soil_screen_until = HAL_GetTick() + 2000u;
             break;
         case '*':
             ExitPowerSave();                          /* Star key wakes the screen from power-save mode */
@@ -1132,10 +1295,17 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_8, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PA1 PA2 PA5 PA6
-                           PA7 PA8 PA9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6
-                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pin : PA1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA2 PA5 PA6 PA7
+                           PA8 PA9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
+                          |GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

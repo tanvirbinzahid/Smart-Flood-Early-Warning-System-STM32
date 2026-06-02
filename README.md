@@ -49,8 +49,15 @@ This project implements a **Smart Flood Early Warning System** using the STM32F1
 | 8 | **⌨️ Keypad Control** | 4×4 matrix keypad for full system interaction |
 | 9 | **⚡ Sensitivity Tuning** | Adjustable SYS_SEN (1-10) for deadband / responsiveness |
 | 10 | **📈 Session Statistics** | Min/max tracking for water level, rise rate, and risk index |
-| 11 | **🔋 Power Save Mode** | Auto-enter after 1 hour of stable SAFE conditions |
+| 11 | **🔋 Power Save Mode** | Auto-enter after 40s stable SAFE, OLED turns off, LEDs off |
 | 12 | **🔄 Rise Rate Detection** | Calculates water level velocity (cm/s) for trend awareness |
+| 13 | **📉 Trend Engine** | Least-squares slope over 12-sample ring buffer with predictive boost |
+| 14 | **🔧 Ultra Deadband Tuning** | Key 7/9 adjustable deadband (0.50–3.00 cm) with dedicated OLED screen |
+| 15 | **🪴 Soil Dry Calibration** | Key 8/0 adjustable dry ADC threshold (500–4095) with dedicated OLED screen |
+| 16 | **📊 5-Level LED Bar** | Risk mapped to 5 individual LEDs (G/Y1/Y2/R1/R2) |
+| 17 | **📈 Soil Stats Tracking** | Min/max soil moisture tracked alongside water/rise/RI |
+| 18 | **🖥️ OLED Power-Save** | Screen physically turns off after 40s stable SAFE, wakes on `*` |
+| 19 | **🔁 Exponential Filter** | Adaptive alpha filter (0.20–1.00) for ultrasonic smoothing, controlled by SYS_SEN |
 
 ---
 
@@ -92,19 +99,27 @@ graph TB
 ### Sensor Fusion Pipeline
 
 ```
-HC-SR04 ──► Median(5) ──► MovingAvg(8) ──► Deadband Filter ──┐
-DHT11   ──► CRC Check   ──────────────────────────────────────┤
-Soil    ──► MovingAvg(8) ─────────────────────────────────────┤
-                                                               ▼
-                                                      RISK INDEX
-                                                     0.55×WL + 0.31×Soil
-                                                     0.07×RR + 0.05×Hum
-                                                     0.02×Temp
+HC-SR04 ──► Median(5) ──► MovingAvg(8) ──► Deadband ──► Alpha Filter ─┐
+DHT11   ──► CRC Check   ───────────────────────────────────────────────┤
+Soil    ──► MovingAvg(8) ──── Calibrated by soil_dry_adc ──────────────┤
+                                                                       ▼
+                                                              RISK INDEX
+                                                     0.50×WL + 0.29×Soil
+                                                     0.15×RR + 0.03×Hum
+                                                     0.03×Temp
+                                                                 │
+                                                                 ▼
+                                                         ┌──────┴──────┐
+                                                    Trend Engine ◄──┘
+                                                    LeastSquaresSlope
+                                                    (12-sample RI buf)
                                                          │
                                                          ▼
                                           ┌──────────┴──────────┐
                                           │  < 40     40-74   ≥ 75 │
                                           │  SAFE   WARNING EVACUATE│
+                                          │    + trend boost ↑     │
+                                          │    + hysteresis        │
                                           └────────────────────────┘
 ```
 
@@ -136,6 +151,18 @@ Soil    ──► MovingAvg(8) ────────────────�
 | **Keypad Rows** | PB8-PB11 | 4×4 matrix rows |
 | **Keypad Cols** | PB12-PB15 | 4×4 matrix columns |
 
+### LED Bar Mapping (5-Level)
+
+| Risk Index | LED | Color | Behavior |
+|------------|-----|-------|----------|
+| 0–19% | PA5 | Green | Solid |
+| 20–39% | PA6 | Yellow 1 | Solid |
+| 40–59% | PA7 | Yellow 2 | Solid |
+| 60–79% | PA8 | Red 1 | Solid |
+| 80–100% | PA9 | Red 2 | Blinks (EVACUATE) |
+
+> **Power-save mode:** All LEDs turn off when the system enters power-save.
+
 ### Hardware Bill of Materials
 
 | Item | Quantity |
@@ -160,22 +187,39 @@ Soil    ──► MovingAvg(8) ────────────────�
 The composite Risk Index (0-100) is computed every 500ms:
 
 ```
-wl_inv     = WL_SAFE_CM - water_level_cm          // Invert so lower water = higher risk
-wl_s       = Scale(wl_inv, 0, WL_SAFE_CM - WL_EVAC_CM)
-rr_s       = Scale(rise_rate_cms, 0, MAX_RISE_CMS)
-hum_s      = Scale(humidity_pct, 60, 95)
-tmp_s      = Scale(temperature_c, 25, 35)
+wl_inv  = WL_SAFE_CM - water_level_cm              // Invert: lower water = higher risk
+wl_s    = Normalise(wl_inv, 0, WL_SAFE_CM - WL_EVAC_CM)
+rr_s    = Normalise(rise_rate_cms, 0, MAX_RISE_CMS)
+hum_s   = Normalise(humidity_pct, 60, 95)
+tmp_s   = Normalise(temperature_c, 25, 35)
 
-risk_index = 0.55 × wl_s + 0.31 × soil_pct + 0.07 × rr_s + 0.05 × hum_s + 0.02 × tmp_s
+risk_index = 0.50 × wl_s + 0.29 × soil_pct + 0.15 × rr_s + 0.03 × hum_s + 0.03 × tmp_s
 ```
+
+> `Normalise(val, lo, hi)` clamps the result between 0 and 100.
+
+### Trend Engine
+
+A least-squares linear regression over the last 12 risk index samples detects if risk is rising rapidly:
+
+```
+trend = LeastSquaresSlope(ri_ring_buffer)
+```
+
+If `trend > TREND_BOOST (2.5)`, the alert tier is boosted by one level (SAFE→WARNING, WARNING→EVACUATE). Hysteresis prevents rapid de-escalation:
+
+- EVACUATE holds until RI drops below 70
+- WARNING holds until RI drops below 35
 
 ### Tier Thresholds
 
 ```
-SAFE     ──► Risk Index < 40   ──► Green LED ON
-WARNING  ──► Risk Index 40-74  ──► Yellow LED(s) ON, buzzer every 500ms
-EVACUATE ──► Risk Index ≥ 75   ──► Red LEDs flash, buzzer every 125ms
+SAFE     ──► Risk Index < 40   ──► LED bar level 0-1
+WARNING  ──► Risk Index 40-74  ──► LED bar level 2-3, buzzer every 500ms
+EVACUATE ──► Risk Index ≥ 75   ──► LED bar level 4+, buzzer every 125ms
 ```
+
+The LED bar uses **5 individual LEDs** mapped to finer risk ranges (see Hardware section).
 
 ### Risk Index Visualization
 
@@ -226,10 +270,10 @@ cm
 | **4** | Open statistics screen | Any screen |
 | **5** | Decrease SYS_SEN (↓ sensitivity) | Any screen |
 | **6** | Increase SYS_SEN (↑ sensitivity) | Any screen |
-| **7** | (Reserved) | - |
-| **8** | (Reserved) | - |
-| **9** | (Reserved) | - |
-| **0** | (Reserved) | - |
+| **7** | Decrease ultrasonic deadband (↓ DB) | Any screen |
+| **8** | Decrease soil dry ADC threshold (↓ dry) | Any screen |
+| **9** | Increase ultrasonic deadband (↑ DB) | Any screen |
+| **0** | Increase soil dry ADC threshold (↑ dry) | Any screen |
 | ***\*** | Wake from power-save | Power-save mode |
 | **#** | (Reserved) | - |
 
@@ -265,11 +309,31 @@ cm
 ```
 ┌──────────────────────────┐
 │ MIN/MAX  KEY 4           │
-│ WL:3.2~82.1cm            │
+│ WL:0.0~9.0cm             │  ← Inverted water level
 │ RR:0.00~5.40             │
 │ RI: 0 ~ 96 /100          │
-│ T:26.0C H:55%            │
+│ SOIL:12% ~ 78%           │  ← Soil moisture min/max
 │ [3]Next [2]Reset         │
+└──────────────────────────┘
+```
+
+### Page 4: Ultrasonic Deadband (temporary)
+```
+┌──────────────────────────┐
+│ ULTRA DEADBAND           │
+│ DB:1.50cm                │  ← Current deadband value
+│ MIN:0.50 MAX:3.00        │
+│ 7=LOW 9=HIGH             │
+└──────────────────────────┘
+```
+
+### Page 5: Soil Dry Calibration (temporary)
+```
+┌──────────────────────────┐
+│ SOIL DRY CAL             │
+│ DRY:3500                 │  ← Current dry ADC threshold
+│ MIN:500 MAX:4095         │
+│ 8=LOW 0=HIGH             │
 └──────────────────────────┘
 ```
 
@@ -356,9 +420,13 @@ openocd -f board/stm32f1bluepill.cfg -c "program CSE331_Final.elf verify reset e
 |-----------|-------|
 | Sampling Interval | 500 ms (normal), 5 s (power-save) |
 | DHT11 Update | 2 s |
-| Power-Save Entry | 1 hour of stable SAFE |
+| Power-Save Entry | 40 seconds of stable SAFE (OLED turns off) |
 | Ultrasonic Range | 2–250 cm |
-| Sensor Fusion | Median(5) + MovingAvg(8) + Deadband |
+| Sensor Fusion | Median(5) + MovingAvg(8) + Deadband + Alpha Filter |
+| Filter Alpha Range | 0.20 – 1.00 (controlled by SYS_SEN) |
+| Trend Engine | Least-squares slope over 12-sample RI ring buffer |
+| LED Bar | 5-level: G / Y1 / Y2 / R1 / R2 |
+| Calibration | Ultra deadband (0.50–3.00 cm), Soil dry (500–4095 ADC) |
 | Alert Latency | < 1 s (within 2 samples) |
 | MCU Clock | 72 MHz (HSE 8 MHz × 9 PLL) |
 | OLED Refresh | 50–60 FPS (tied to main loop) |
@@ -370,16 +438,55 @@ openocd -f board/stm32f1bluepill.cfg -c "program CSE331_Final.elf verify reset e
 ### Ultrasonic Filtering Pipeline
 
 ```
-Raw Echo ──► 5-sample Median ──► 8-sample Moving Avg ──► Deadband ──► Water Level
-               (removes spikes)    (smoothing)            (±cm filter)
+Raw Echo ──► 5-sample Median ──► 8-sample Moving Avg ──► Deadband ──► Alpha Filter ──► Water Level
+               (removes spikes)    (smoothing)          (±cm filter)   (exponential)
 ```
 
-The deadband is dynamically adjusted by `SYS_SEN`:
-- `SYS_SEN = 1` → deadband = 2.75 cm (least sensitive)
-- `SYS_SEN = 5` → deadband = 1.75 cm (default)
-- `SYS_SEN = 10` → deadband = 0.50 cm (most sensitive)
+### Adaptive Alpha Filter
 
-### Formula: `deadband = 3.00 - (0.25 × SYS_SEN)`
+Instead of a simple replacement, the system uses an exponential moving average:
+
+```c
+ultra_alpha = 0.20f + (0.08f * (float)sys_sen);  // Range: 0.28 – 1.00
+if (diff > -ultra_deadband_cm && diff < ultra_deadband_cm) {
+    // Ignore: noise/jitter within deadband
+} else {
+    water_level_cm += ultra_alpha * (raw_wl - water_level_cm);
+}
+```
+
+- **Higher SYS_SEN** = higher alpha = faster response to real changes
+- **Lower SYS_SEN** = lower alpha = smoother but slower response
+
+### Ultrasonic Deadband (independently tunable via Key 7/9)
+
+- Range: `0.50 cm` (most sensitive) to `3.00 cm` (least sensitive)
+- Step: `0.25 cm`
+- Default: `2.00 cm`
+
+### Soil Dry Calibration (independently tunable via Key 8/0)
+
+- Range: `500` (very wet calibration) to `4095` (very dry calibration) ADC
+- Step: `150`
+- Default: `3500`
+
+### Water Level Display Inversion
+
+The raw sensor distance is inverted for intuitive display:
+
+```c
+water_level_display = WL_DEPTH_CM - water_level_cm;  // WL_DEPTH_CM = 9.0
+```
+
+As water rises toward the sensor, the displayed value increases from `0.0 cm` (no water) toward `9.0 cm` (maximum detected water height).
+
+### Soil Moisture Formula
+
+The soil percentage formula uses the calibrated dry value:
+
+```c
+soil_pct = 100 - ((avg_ADC - SOIL_WET_ADC) * 100 / (soil_dry_adc - SOIL_WET_ADC))
+```
 
 ---
 
