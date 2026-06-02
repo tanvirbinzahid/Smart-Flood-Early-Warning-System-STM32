@@ -163,22 +163,6 @@ Soil    ──► MovingAvg(8) ──── Calibrated by soil_dry_adc ───
 
 > **Power-save mode:** All LEDs turn off when the system enters power-save.
 
-### Hardware Bill of Materials
-
-| Item | Quantity |
-|------|----------|
-| STM32F103C8T6 (Blue Pill) | 1 |
-| HC-SR04 Ultrasonic Sensor | 1 |
-| DHT11 Temp/Humidity Sensor | 1 |
-| Soil Moisture Sensor (FC-28) | 1 |
-| SSD1306 OLED 128×64 I2C | 1 |
-| 4×4 Matrix Keypad | 1 |
-| 5× LED (1G, 2Y, 2R) + 220Ω resistors | 5 |
-| Active Buzzer (5V) | 1 |
-| Breadboard + Jumper Wires | - |
-| 8 MHz Crystal + 2×22pF caps | 1 set |
-| 2× 100nF decoupling caps | 2 |
-
 ---
 
 <a name="risk-index-algorithm"></a>
