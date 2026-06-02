@@ -134,6 +134,12 @@ Soil    ──► MovingAvg(8) ──── Calibrated by soil_dry_adc ───
   <em>Full system assembled on breadboard — STM32F103C8T6 with HC-SR04, DHT11, soil moisture sensor, OLED, keypad, LEDs, and buzzer</em>
 </p>
 
+<p align="center">
+  <img src="assets/pin-config.png" alt="Pin Configuration Diagram" width="700"/>
+  <br/>
+  <em>STM32F103C8T6 pin configuration with all connected peripherals</em>
+</p>
+
 | Component | Pin | Function |
 |-----------|-----|----------|
 | **HC-SR04 TRIG** | PA2 | Ultrasonic trigger output |
