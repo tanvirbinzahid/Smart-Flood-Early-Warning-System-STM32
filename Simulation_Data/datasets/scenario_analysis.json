@@ -1,0 +1,424 @@
+{
+  "normal_dry": {
+    "scenario": {
+      "name": "Normal Dry Season (November-April)",
+      "description": "Typical dry season in Bangladesh. Low water levels, dry soil, stable conditions. Risk index should remain SAFE.",
+      "duration_hours": 72,
+      "sample_interval_s": 300,
+      "water_level_base_cm": 5.0,
+      "water_level_noise_cm": 1.0,
+      "soil_moisture_pct": 15,
+      "soil_noise_pct": 3,
+      "humidity_pct": 45,
+      "temp_c": 28,
+      "has_rain_event": false
+    },
+    "analysis": {
+      "total_transitions": 0,
+      "transitions": [],
+      "time_to_warning_hours": null,
+      "time_to_evacuate_hours": null,
+      "max_risk": 4.4,
+      "avg_risk_during_rain": 0.0
+    },
+    "summary_stats": {
+      "samples": 864,
+      "risk_min": 4.4,
+      "risk_max": 4.4,
+      "risk_avg": 4.4,
+      "tier_counts": {
+        "SAFE": 864
+      },
+      "water_level_max": 8.75,
+      "water_level_avg": 5.0,
+      "soil_max": 15,
+      "soil_avg": 15.0
+    }
+  },
+  "monsoon_gradual": {
+    "scenario": {
+      "name": "Monsoon Gradual Rise (June-July)",
+      "description": "Typical monsoon pattern: gradual water level rise over 48h followed by sustained high water. Soil saturation increases over time. Risk should transition SAFE->WARNING->EVACUATE.",
+      "duration_hours": 72,
+      "sample_interval_s": 300,
+      "water_level_base_cm": 8.0,
+      "water_level_noise_cm": 1.5,
+      "soil_moisture_pct": 35,
+      "soil_noise_pct": 5,
+      "humidity_pct": 78,
+      "temp_c": 30,
+      "has_rain_event": true,
+      "rain_start_hour": 6,
+      "rain_duration_hours": 36,
+      "water_rise_rate_cm_per_h": 1.2,
+      "max_water_cm": 50
+    },
+    "analysis": {
+      "total_transitions": 2,
+      "transitions": [
+        {
+          "time_hours": 23.417,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 40.0,
+          "water_level_at_transition": 20.0
+        },
+        {
+          "time_hours": 37.0,
+          "from_tier": "WARNING",
+          "to_tier": "EVACUATE",
+          "risk_at_transition": 75.0,
+          "water_level_at_transition": 36.3
+        }
+      ],
+      "time_to_warning_hours": 23.417,
+      "time_to_evacuate_hours": 37.0,
+      "max_risk": 82.0,
+      "avg_risk_during_rain": 43.5
+    },
+    "summary_stats": {
+      "samples": 864,
+      "risk_min": 11.7,
+      "risk_max": 82.0,
+      "risk_avg": 49.8,
+      "tier_counts": {
+        "EVACUATE": 420,
+        "SAFE": 281,
+        "WARNING": 163
+      },
+      "water_level_max": 46.9,
+      "water_level_avg": 24.0,
+      "soil_max": 100,
+      "soil_avg": 76.8
+    }
+  },
+  "flash_flood": {
+    "scenario": {
+      "name": "Flash Flood (Sudden, Rapid Rise)",
+      "description": "Flash flood scenario: rapid water level rise over 6-8 hours. Common in Dhaka canals during intense monsoon rain. Risk should spike quickly to EVACUATE.",
+      "duration_hours": 24,
+      "sample_interval_s": 60,
+      "water_level_base_cm": 5.0,
+      "water_level_noise_cm": 2.0,
+      "soil_moisture_pct": 60,
+      "soil_noise_pct": 5,
+      "humidity_pct": 92,
+      "temp_c": 27,
+      "has_rain_event": true,
+      "rain_start_hour": 1,
+      "rain_duration_hours": 6,
+      "water_rise_rate_cm_per_h": 8.0,
+      "max_water_cm": 45
+    },
+    "analysis": {
+      "total_transitions": 2,
+      "transitions": [
+        {
+          "time_hours": 3.0,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 40.1,
+          "water_level_at_transition": 21.13
+        },
+        {
+          "time_hours": 8.05,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 35.0,
+          "water_level_at_transition": 16.9
+        }
+      ],
+      "time_to_warning_hours": 3.0,
+      "time_to_evacuate_hours": null,
+      "max_risk": 74.0,
+      "avg_risk_during_rain": 51.4
+    },
+    "summary_stats": {
+      "samples": 1440,
+      "risk_min": 20.1,
+      "risk_max": 74.0,
+      "risk_avg": 31.0,
+      "tier_counts": {
+        "SAFE": 1137,
+        "WARNING": 303
+      },
+      "water_level_max": 45.0,
+      "water_level_avg": 12.0,
+      "soil_max": 72.0,
+      "soil_avg": 67.0
+    }
+  },
+  "coastal_storm_surge": {
+    "scenario": {
+      "name": "Coastal Storm Surge (Cyclone)",
+      "description": "Cyclone-induced storm surge: sharp water level spike with debris-laden turbulent water. High humidity, saturated soil. Risk hits EVACUATE fastest.",
+      "duration_hours": 18,
+      "sample_interval_s": 120,
+      "water_level_base_cm": 10.0,
+      "water_level_noise_cm": 3.0,
+      "soil_moisture_pct": 85,
+      "soil_noise_pct": 3,
+      "humidity_pct": 95,
+      "temp_c": 26,
+      "has_rain_event": true,
+      "rain_start_hour": 0,
+      "rain_duration_hours": 12,
+      "water_rise_rate_cm_per_h": 6.0,
+      "max_water_cm": 40
+    },
+    "analysis": {
+      "total_transitions": 22,
+      "transitions": [
+        {
+          "time_hours": 0.867,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 41.8,
+          "water_level_at_transition": 18.45
+        },
+        {
+          "time_hours": 1.033,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 34.3,
+          "water_level_at_transition": 13.96
+        },
+        {
+          "time_hours": 1.1,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 40.9,
+          "water_level_at_transition": 17.94
+        },
+        {
+          "time_hours": 2.067,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 31.3,
+          "water_level_at_transition": 12.1
+        },
+        {
+          "time_hours": 2.133,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 43.7,
+          "water_level_at_transition": 19.56
+        },
+        {
+          "time_hours": 2.233,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 32.3,
+          "water_level_at_transition": 12.75
+        },
+        {
+          "time_hours": 3.9,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 50.4,
+          "water_level_at_transition": 23.58
+        },
+        {
+          "time_hours": 4.333,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 33.8,
+          "water_level_at_transition": 13.66
+        },
+        {
+          "time_hours": 4.367,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 40.7,
+          "water_level_at_transition": 17.74
+        },
+        {
+          "time_hours": 4.433,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 32.7,
+          "water_level_at_transition": 13.01
+        },
+        {
+          "time_hours": 4.533,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 43.5,
+          "water_level_at_transition": 19.39
+        },
+        {
+          "time_hours": 4.8,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 31.7,
+          "water_level_at_transition": 12.34
+        },
+        {
+          "time_hours": 6.267,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 41.3,
+          "water_level_at_transition": 18.13
+        },
+        {
+          "time_hours": 6.4,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 34.0,
+          "water_level_at_transition": 13.77
+        },
+        {
+          "time_hours": 6.867,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 42.8,
+          "water_level_at_transition": 19.03
+        },
+        {
+          "time_hours": 9.467,
+          "from_tier": "WARNING",
+          "to_tier": "EVACUATE",
+          "risk_at_transition": 77.7,
+          "water_level_at_transition": 40
+        },
+        {
+          "time_hours": 11.1,
+          "from_tier": "EVACUATE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 31.8,
+          "water_level_at_transition": 12.43
+        },
+        {
+          "time_hours": 11.2,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 34.1,
+          "water_level_at_transition": 13.81
+        },
+        {
+          "time_hours": 11.3,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 42.9,
+          "water_level_at_transition": 19.11
+        },
+        {
+          "time_hours": 12.0,
+          "from_tier": "WARNING",
+          "to_tier": "SAFE",
+          "risk_at_transition": 33.3,
+          "water_level_at_transition": 13.32
+        },
+        {
+          "time_hours": 14.633,
+          "from_tier": "SAFE",
+          "to_tier": "WARNING",
+          "risk_at_transition": 41.1,
+          "water_level_at_transition": 17.97
+        },
+        {
+          "time_hours": 15.033,
+          "from_tier": "WARNING",
+          "to_tier": "EVACUATE",
+          "risk_at_transition": 75.9,
+          "water_level_at_transition": 38.93
+        }
+      ],
+      "time_to_warning_hours": 0.867,
+      "time_to_evacuate_hours": 9.467,
+      "max_risk": 77.8,
+      "avg_risk_during_rain": 0.0
+    },
+    "summary_stats": {
+      "samples": 540,
+      "risk_min": 27.6,
+      "risk_max": 77.8,
+      "risk_avg": 45.2,
+      "tier_counts": {
+        "EVACUATE": 138,
+        "SAFE": 224,
+        "WARNING": 178
+      },
+      "water_level_max": 40,
+      "water_level_avg": 19.7,
+      "soil_max": 85,
+      "soil_avg": 85.0
+    }
+  },
+  "urban_drain_overload": {
+    "scenario": {
+      "name": "Urban Drain Overload (Dhaka Canal)",
+      "description": "Dhaka urban drainage canal scenario: water level rises and falls with tide/rain. Multiple peaks over 48h. Soil stays wet. Intermittent warnings.",
+      "duration_hours": 48,
+      "sample_interval_s": 300,
+      "water_level_base_cm": 6.0,
+      "water_level_noise_cm": 1.5,
+      "soil_moisture_pct": 50,
+      "soil_noise_pct": 5,
+      "humidity_pct": 82,
+      "temp_c": 29,
+      "has_rain_event": true,
+      "rain_start_hour": 4,
+      "rain_duration_hours": 8,
+      "water_rise_rate_cm_per_h": 3.5,
+      "max_water_cm": 35
+    },
+    "analysis": {
+      "total_transitions": 0,
+      "transitions": [],
+      "time_to_warning_hours": null,
+      "time_to_evacuate_hours": null,
+      "max_risk": 25.2,
+      "avg_risk_during_rain": 19.8
+    },
+    "summary_stats": {
+      "samples": 576,
+      "risk_min": 16.4,
+      "risk_max": 25.2,
+      "risk_avg": 18.8,
+      "tier_counts": {
+        "SAFE": 576
+      },
+      "water_level_max": 13.18,
+      "water_level_avg": 6.7,
+      "soil_max": 66.2,
+      "soil_avg": 56.8
+    }
+  },
+  "post_flood_recession": {
+    "scenario": {
+      "name": "Post-Flood Water Recession",
+      "description": "Flood waters gradually receding. Water level falls from flood stage to normal. Soil remains saturated. Risk transitions from EVACUATE to SAFE.",
+      "duration_hours": 48,
+      "sample_interval_s": 300,
+      "water_level_base_cm": 45.0,
+      "water_level_noise_cm": 1.0,
+      "soil_moisture_pct": 70,
+      "soil_noise_pct": 5,
+      "humidity_pct": 75,
+      "temp_c": 31,
+      "has_rain_event": false
+    },
+    "analysis": {
+      "total_transitions": 0,
+      "transitions": [],
+      "time_to_warning_hours": null,
+      "time_to_evacuate_hours": null,
+      "max_risk": 71.6,
+      "avg_risk_during_rain": 0.0
+    },
+    "summary_stats": {
+      "samples": 576,
+      "risk_min": 71.6,
+      "risk_max": 71.6,
+      "risk_avg": 71.6,
+      "tier_counts": {
+        "WARNING": 576
+      },
+      "water_level_max": 47.79,
+      "water_level_avg": 44.7,
+      "soil_max": 70,
+      "soil_avg": 70.0
+    }
+  }
+}

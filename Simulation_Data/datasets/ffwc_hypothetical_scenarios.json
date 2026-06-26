@@ -1,0 +1,167 @@
+{
+  "station": "Buriganga at Dhaka (SW-264)",
+  "danger_level": 6.0,
+  "historical_data": {
+    "station": "Buriganga at Dhaka (Milbarak)",
+    "station_id": "SW-264",
+    "danger_level_mpwd": 6.0,
+    "recorded_highest_mpwd": 7.58,
+    "historical_highest_mpwd": 15.19,
+    "peak_by_year": {
+      "2010": {
+        "peak": null,
+        "above_dl_days": 0
+      },
+      "2011": {
+        "peak": null,
+        "above_dl_days": 0
+      },
+      "2012": {
+        "peak": 4.95,
+        "above_dl_days": 0,
+        "note": "Flow below DL all season"
+      },
+      "2013": {
+        "peak": 4.92,
+        "above_dl_days": 0,
+        "note": "Flow below DL all season"
+      },
+      "2014": {
+        "peak": 5.11,
+        "above_dl_days": 0,
+        "note": "Below DL by 89cm"
+      },
+      "2015": {
+        "peak": 5.2,
+        "above_dl_days": 0
+      },
+      "2016": {
+        "peak": 5.21,
+        "above_dl_days": 0
+      },
+      "2017": {
+        "peak": 5.22,
+        "above_dl_days": 0,
+        "note": "Below DL by 78cm"
+      },
+      "2018": {
+        "peak": 4.64,
+        "above_dl_days": 0,
+        "note": "Below DL by 136cm"
+      },
+      "2019": {
+        "peak": 4.9,
+        "above_dl_days": 0,
+        "note": "Below DL by 110cm"
+      },
+      "2020": {
+        "peak": 5.53,
+        "above_dl_days": 0,
+        "note": "Below DL by 47cm"
+      },
+      "2021": {
+        "peak": 5.15,
+        "above_dl_days": 0,
+        "note": "Below DL by 85cm"
+      }
+    }
+  },
+  "hypothetical_scenarios": [
+    {
+      "name": "Normal Dry Season (FFWC 2021 baseline)",
+      "real_data": "Buriganga at Dhaka, dry season (Nov-Apr)",
+      "water_level_cm": 3.0,
+      "soil_moisture_pct": 12,
+      "humidity_pct": 45,
+      "temp_c": 28,
+      "rise_cm_per_h": 0.1,
+      "risk_index": 3.5,
+      "tier": "SAFE",
+      "source": "FFWC Annual Report 2021, dry season observations"
+    },
+    {
+      "name": "Monsoon Onset (June)",
+      "real_data": "Buriganga at Dhaka, early monsoon",
+      "water_level_cm": 8.0,
+      "soil_moisture_pct": 35,
+      "humidity_pct": 78,
+      "temp_c": 30,
+      "rise_cm_per_h": 1.5,
+      "risk_index": 11.7,
+      "tier": "SAFE",
+      "source": "FFWC Annual Report 2021, June monsoon onset"
+    },
+    {
+      "name": "Peak Monsoon (July-August 2021)",
+      "real_data": "Buriganga at Dhaka, peak = 5.15 mPWD",
+      "water_level_cm": 35.0,
+      "soil_moisture_pct": 85,
+      "humidity_pct": 92,
+      "temp_c": 29,
+      "rise_cm_per_h": 2.0,
+      "risk_index": 69.1,
+      "tier": "WARNING",
+      "source": "FFWC Annual Report 2021, Sec 3.2"
+    },
+    {
+      "name": "1998 Historic Flood (Benchmark)",
+      "real_data": "Buriganga at Dhaka, 15.19 mPWD (worst ever)",
+      "water_level_cm": 48.0,
+      "soil_moisture_pct": 100,
+      "humidity_pct": 98,
+      "temp_c": 27,
+      "rise_cm_per_h": 8.0,
+      "risk_index": 82.0,
+      "tier": "EVACUATE",
+      "source": "FFWC Annual Report 2021, Table 3.7"
+    },
+    {
+      "name": "1988 Historic Flood",
+      "real_data": "Buriganga at Dhaka, 13.71 mPWD",
+      "water_level_cm": 44.0,
+      "soil_moisture_pct": 95,
+      "humidity_pct": 95,
+      "temp_c": 28,
+      "rise_cm_per_h": 6.0,
+      "risk_index": 80.6,
+      "tier": "EVACUATE",
+      "source": "FFWC Annual Report 2021, Table 3.7"
+    },
+    {
+      "name": "Highest Recorded (1968)",
+      "real_data": "Buriganga at Dhaka, 7.58 mPWD (highest non-flood)",
+      "water_level_cm": 40.0,
+      "soil_moisture_pct": 90,
+      "humidity_pct": 90,
+      "temp_c": 29,
+      "rise_cm_per_h": 4.0,
+      "risk_index": 78.7,
+      "tier": "EVACUATE",
+      "source": "FFWC station records"
+    },
+    {
+      "name": "Near-Miss (2020 monsoon)",
+      "real_data": "Buriganga at Dhaka, peak = 5.53 mPWD (47cm below DL)",
+      "water_level_cm": 28.0,
+      "soil_moisture_pct": 75,
+      "humidity_pct": 88,
+      "temp_c": 30,
+      "rise_cm_per_h": 2.5,
+      "risk_index": 54.2,
+      "tier": "WARNING",
+      "source": "FFWC Annual Report 2020, Sec 3.1"
+    },
+    {
+      "name": "Low Monsoon (2018)",
+      "real_data": "Buriganga at Dhaka, peak = 4.64 mPWD (136cm below DL)",
+      "water_level_cm": 15.0,
+      "soil_moisture_pct": 45,
+      "humidity_pct": 75,
+      "temp_c": 31,
+      "rise_cm_per_h": 0.8,
+      "risk_index": 22.7,
+      "tier": "SAFE",
+      "source": "FFWC Annual Report 2018, Sec 3.2"
+    }
+  ]
+}
