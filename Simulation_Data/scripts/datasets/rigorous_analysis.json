@@ -1,0 +1,346 @@
+{
+  "d3_ablation": {
+    "Full index": {
+      "mismatches": "0/4860",
+      "pct_mismatch": 0.0,
+      "mean_abs_dr": 0.0,
+      "scenarios_tier_changed": 0,
+      "per_scenario": {
+        "normal_dry": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 4.6499999999999995
+        },
+        "monsoon": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 85.55636574074073
+        },
+        "flash_flood": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 95.29285714285714
+        },
+        "storm_surge": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 92.23333333333333
+        },
+        "urban_drain": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 21.444450112356147
+        },
+        "recession": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 71.58571428571429
+        }
+      }
+    },
+    "Remove Water": {
+      "mismatches": "2494/4860",
+      "pct_mismatch": 51.3,
+      "mean_abs_dr": 15.05,
+      "scenarios_tier_changed": 4,
+      "per_scenario": {
+        "normal_dry": {
+          "mismatches": 0,
+          "mean_abs_dr": 4.65,
+          "peak_r": 9.299999999999999
+        },
+        "monsoon": {
+          "mismatches": 529,
+          "mean_abs_dr": 14.15,
+          "peak_r": 71.11273148148148
+        },
+        "flash_flood": {
+          "mismatches": 1251,
+          "mean_abs_dr": 18.58,
+          "peak_r": 90.58571428571427
+        },
+        "storm_surge": {
+          "mismatches": 498,
+          "mean_abs_dr": 21.58,
+          "peak_r": 85.3
+        },
+        "urban_drain": {
+          "mismatches": 0,
+          "mean_abs_dr": 16.56,
+          "peak_r": 35.771428571428565
+        },
+        "recession": {
+          "mismatches": 216,
+          "mean_abs_dr": 15.56,
+          "peak_r": 43.171428571428564
+        }
+      }
+    },
+    "Remove Soil": {
+      "mismatches": "2163/4860",
+      "pct_mismatch": 44.5,
+      "mean_abs_dr": 12.77,
+      "scenarios_tier_changed": 4,
+      "per_scenario": {
+        "normal_dry": {
+          "mismatches": 0,
+          "mean_abs_dr": 4.07,
+          "peak_r": 0.58
+        },
+        "monsoon": {
+          "mismatches": 538,
+          "mean_abs_dr": 14.61,
+          "peak_r": 67.46000000000001
+        },
+        "flash_flood": {
+          "mismatches": 1041,
+          "mean_abs_dr": 15.96,
+          "peak_r": 88.6
+        },
+        "storm_surge": {
+          "mismatches": 430,
+          "mean_abs_dr": 14.04,
+          "peak_r": 89.08333333333333
+        },
+        "urban_drain": {
+          "mismatches": 0,
+          "mean_abs_dr": 9.55,
+          "peak_r": 13.058735826641865
+        },
+        "recession": {
+          "mismatches": 154,
+          "mean_abs_dr": 17.09,
+          "peak_r": 54.5
+        }
+      }
+    },
+    "Remove Rise-rate": {
+      "mismatches": "144/4860",
+      "pct_mismatch": 3.0,
+      "mean_abs_dr": 4.75,
+      "scenarios_tier_changed": 4,
+      "per_scenario": {
+        "normal_dry": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.3,
+          "peak_r": 4.35
+        },
+        "monsoon": {
+          "mismatches": 21,
+          "mean_abs_dr": 4.62,
+          "peak_r": 89.5
+        },
+        "flash_flood": {
+          "mismatches": 64,
+          "mean_abs_dr": 7.18,
+          "peak_r": 87.14999999999999
+        },
+        "storm_surge": {
+          "mismatches": 30,
+          "mean_abs_dr": 7.5,
+          "peak_r": 85.15
+        },
+        "urban_drain": {
+          "mismatches": 0,
+          "mean_abs_dr": 4.47,
+          "peak_r": 24.65873582664186
+        },
+        "recession": {
+          "mismatches": 29,
+          "mean_abs_dr": 3.21,
+          "peak_r": 74.8
+        }
+      }
+    },
+    "Remove Hum+Temp": {
+      "mismatches": "484/4860",
+      "pct_mismatch": 10.0,
+      "mean_abs_dr": 1.98,
+      "scenarios_tier_changed": 4,
+      "per_scenario": {
+        "normal_dry": {
+          "mismatches": 0,
+          "mean_abs_dr": 0.0,
+          "peak_r": 4.6499999999999995
+        },
+        "monsoon": {
+          "mismatches": 23,
+          "mean_abs_dr": 2.57,
+          "peak_r": 82.55636574074073
+        },
+        "flash_flood": {
+          "mismatches": 21,
+          "mean_abs_dr": 2.74,
+          "peak_r": 92.55
+        },
+        "storm_surge": {
+          "mismatches": 428,
+          "mean_abs_dr": 3.0,
+          "peak_r": 89.23333333333333
+        },
+        "urban_drain": {
+          "mismatches": 0,
+          "mean_abs_dr": 1.89,
+          "peak_r": 19.55873582664186
+        },
+        "recession": {
+          "mismatches": 12,
+          "mean_abs_dr": 1.29,
+          "peak_r": 70.3
+        }
+      }
+    },
+    "Water-only": {
+      "mismatches": "415/4860",
+      "pct_mismatch": 8.5,
+      "mean_abs_dr": 15.05,
+      "scenarios_tier_changed": 4,
+      "per_scenario": {
+        "normal_dry": {
+          "mismatches": 0,
+          "mean_abs_dr": 4.65,
+          "peak_r": 0.0
+        },
+        "monsoon": {
+          "mismatches": 59,
+          "mean_abs_dr": 14.15,
+          "peak_r": 100.0
+        },
+        "flash_flood": {
+          "mismatches": 94,
+          "mean_abs_dr": 18.58,
+          "peak_r": 100.0
+        },
+        "storm_surge": {
+          "mismatches": 60,
+          "mean_abs_dr": 21.58,
+          "peak_r": 100.0
+        },
+        "urban_drain": {
+          "mismatches": 0,
+          "mean_abs_dr": 16.56,
+          "peak_r": 7.1174716532837285
+        },
+        "recession": {
+          "mismatches": 202,
+          "mean_abs_dr": 15.56,
+          "peak_r": 100.0
+        }
+      }
+    }
+  },
+  "d4_metrics": {
+    "normal_dry": {
+      "scenario": "Normal Dry",
+      "n_samples": 864,
+      "accuracy_pct": 100.0,
+      "evac_precision_pct": 0,
+      "evac_recall_pct": 0,
+      "evac_f1_pct": 0,
+      "specificity_pct": 100.0,
+      "t_warn_h": null,
+      "t_evac_h": null,
+      "confusion_evac": {
+        "TP": 0,
+        "FP": 0,
+        "TN": 864,
+        "FN": 0
+      }
+    },
+    "monsoon": {
+      "scenario": "Monsoon Gradual",
+      "n_samples": 864,
+      "accuracy_pct": 75.7,
+      "evac_precision_pct": 100.0,
+      "evac_recall_pct": 86.3,
+      "evac_f1_pct": 92.6,
+      "specificity_pct": 100.0,
+      "t_warn_h": 16.92,
+      "t_evac_h": 30.58,
+      "confusion_evac": {
+        "TP": 497,
+        "FP": 0,
+        "TN": 288,
+        "FN": 79
+      }
+    },
+    "flash_flood": {
+      "scenario": "Flash Flood",
+      "n_samples": 1440,
+      "accuracy_pct": 24.9,
+      "evac_precision_pct": 19.4,
+      "evac_recall_pct": 77.0,
+      "evac_f1_pct": 31.0,
+      "specificity_pct": 15.8,
+      "t_warn_h": 1.87,
+      "t_evac_h": 4.15,
+      "confusion_evac": {
+        "TP": 231,
+        "FP": 960,
+        "TN": 180,
+        "FN": 69
+      }
+    },
+    "storm_surge": {
+      "scenario": "Storm Surge",
+      "n_samples": 540,
+      "accuracy_pct": 71.7,
+      "evac_precision_pct": 74.0,
+      "evac_recall_pct": 95.0,
+      "evac_f1_pct": 83.2,
+      "specificity_pct": 33.3,
+      "t_warn_h": null,
+      "t_evac_h": 2.6,
+      "confusion_evac": {
+        "TP": 342,
+        "FP": 120,
+        "TN": 60,
+        "FN": 18
+      }
+    },
+    "urban_drain": {
+      "scenario": "Urban Drain",
+      "n_samples": 576,
+      "accuracy_pct": 100.0,
+      "evac_precision_pct": 0,
+      "evac_recall_pct": 0,
+      "evac_f1_pct": 0,
+      "specificity_pct": 100.0,
+      "t_warn_h": null,
+      "t_evac_h": null,
+      "confusion_evac": {
+        "TP": 0,
+        "FP": 0,
+        "TN": 576,
+        "FN": 0
+      }
+    },
+    "recession": {
+      "scenario": "Recession",
+      "n_samples": 576,
+      "accuracy_pct": 75.0,
+      "evac_precision_pct": 0,
+      "evac_recall_pct": 0.0,
+      "evac_f1_pct": 0,
+      "specificity_pct": 100.0,
+      "t_warn_h": null,
+      "t_evac_h": null,
+      "confusion_evac": {
+        "TP": 0,
+        "FP": 0,
+        "TN": 504,
+        "FN": 72
+      }
+    }
+  },
+  "overall": {
+    "accuracy_pct": 67.3,
+    "evac_precision_pct": 49.8,
+    "evac_recall_pct": 81.8,
+    "evac_f1_pct": 61.9,
+    "total_TP": 1070,
+    "total_FP": 1080,
+    "total_TN": 2472,
+    "total_FN": 238
+  }
+}

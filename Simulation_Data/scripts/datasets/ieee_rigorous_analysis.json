@@ -1,0 +1,359 @@
+{
+  "d1_comparative_baseline": [
+    {
+      "method": "Water-only threshold",
+      "scenario": "normal_dry",
+      "r_min": 0.0,
+      "r_max": 0.0,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Water-only threshold",
+      "scenario": "monsoon",
+      "r_min": 0.0,
+      "r_max": 100.0,
+      "tw": 17.666666666666668,
+      "te": 26.416666666666668
+    },
+    {
+      "method": "Water-only threshold",
+      "scenario": "flash_flood",
+      "r_min": 0.0,
+      "r_max": 100.0,
+      "tw": 3.1333333333333333,
+      "te": 4.45
+    },
+    {
+      "method": "Water-only threshold",
+      "scenario": "storm_surge",
+      "r_min": 0.0,
+      "r_max": 100.0,
+      "tw": 1.6,
+      "te": 3.0
+    },
+    {
+      "method": "Water-only threshold",
+      "scenario": "urban_drain",
+      "r_min": 0.0,
+      "r_max": 7.1174716532837285,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Water-only threshold",
+      "scenario": "recession",
+      "r_min": 0.0,
+      "r_max": 100.0,
+      "tw": 15.666666666666666,
+      "te": null
+    },
+    {
+      "method": "Water+Soil",
+      "scenario": "normal_dry",
+      "r_min": 4.5,
+      "r_max": 4.5,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Water+Soil",
+      "scenario": "monsoon",
+      "r_min": 10.5,
+      "r_max": 100.0,
+      "tw": 16.25,
+      "te": 26.75
+    },
+    {
+      "method": "Water+Soil",
+      "scenario": "flash_flood",
+      "r_min": 18.0,
+      "r_max": 98.5,
+      "tw": 2.6333333333333333,
+      "te": 4.316666666666666
+    },
+    {
+      "method": "Water+Soil",
+      "scenario": "storm_surge",
+      "r_min": 25.5,
+      "r_max": 95.5,
+      "tw": 0.8333333333333334,
+      "te": 2.8333333333333335
+    },
+    {
+      "method": "Water+Soil",
+      "scenario": "urban_drain",
+      "r_min": 15.0,
+      "r_max": 19.98223015729861,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Water+Soil",
+      "scenario": "recession",
+      "r_min": 21.0,
+      "r_max": 91.0,
+      "tw": 14.833333333333334,
+      "te": null
+    },
+    {
+      "method": "MFFI rise-rate only",
+      "scenario": "normal_dry",
+      "r_min": 2.0,
+      "r_max": 2.0,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "MFFI rise-rate only",
+      "scenario": "monsoon",
+      "r_min": 0.0,
+      "r_max": 24.0,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "MFFI rise-rate only",
+      "scenario": "flash_flood",
+      "r_min": 0.0,
+      "r_max": 100.0,
+      "tw": null,
+      "te": 1.0166666666666666
+    },
+    {
+      "method": "MFFI rise-rate only",
+      "scenario": "storm_surge",
+      "r_min": 0.0,
+      "r_max": 100.0,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "MFFI rise-rate only",
+      "scenario": "urban_drain",
+      "r_min": 0.0,
+      "r_max": 10.0,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "MFFI rise-rate only",
+      "scenario": "recession",
+      "r_min": 0.0,
+      "r_max": 0.0,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Full Composite Risk",
+      "scenario": "normal_dry",
+      "r_min": 4.6499999999999995,
+      "r_max": 4.6499999999999995,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Full Composite Risk",
+      "scenario": "monsoon",
+      "r_min": 11.692857142857141,
+      "r_max": 85.55636574074073,
+      "tw": 16.916666666666668,
+      "te": 30.583333333333332
+    },
+    {
+      "method": "Full Composite Risk",
+      "scenario": "flash_flood",
+      "r_min": 20.142857142857142,
+      "r_max": 95.29285714285714,
+      "tw": 1.8666666666666667,
+      "te": 4.15
+    },
+    {
+      "method": "Full Composite Risk",
+      "scenario": "storm_surge",
+      "r_min": 42.65,
+      "r_max": 92.23333333333333,
+      "tw": null,
+      "te": 2.6
+    },
+    {
+      "method": "Full Composite Risk",
+      "scenario": "urban_drain",
+      "r_min": 16.385714285714283,
+      "r_max": 21.444450112356147,
+      "tw": null,
+      "te": null
+    },
+    {
+      "method": "Full Composite Risk",
+      "scenario": "recession",
+      "r_min": 21.585714285714282,
+      "r_max": 71.58571428571429,
+      "tw": null,
+      "te": null
+    }
+  ],
+  "d2_monte_carlo": {
+    "normal_dry": {
+      "t_warn_mean": null,
+      "t_warn_std": null,
+      "t_evac_mean": null,
+      "t_evac_std": null,
+      "n_warn": 0,
+      "n_evac": 0
+    },
+    "monsoon": {
+      "t_warn_mean": 15.4,
+      "t_warn_std": 0.72,
+      "t_evac_mean": 29.07,
+      "t_evac_std": 0.68,
+      "n_warn": 100,
+      "n_evac": 100
+    },
+    "flash_flood": {
+      "t_warn_mean": 1.62,
+      "t_warn_std": 0.1,
+      "t_evac_mean": 3.9,
+      "t_evac_std": 0.11,
+      "n_warn": 100,
+      "n_evac": 100
+    },
+    "storm_surge": {
+      "t_warn_mean": 2.13,
+      "t_warn_std": 0.81,
+      "t_evac_mean": 2.37,
+      "t_evac_std": 0.12,
+      "n_warn": 100,
+      "n_evac": 100
+    },
+    "urban_drain": {
+      "t_warn_mean": null,
+      "t_warn_std": null,
+      "t_evac_mean": null,
+      "t_evac_std": null,
+      "n_warn": 0,
+      "n_evac": 0
+    },
+    "recession": {
+      "t_warn_mean": 12.56,
+      "t_warn_std": 11.9,
+      "t_evac_mean": 2.51,
+      "t_evac_std": 1.48,
+      "n_warn": 100,
+      "n_evac": 58
+    }
+  },
+  "d3_ablation": {
+    "Full index": [
+      0.0,
+      100.0,
+      100.0,
+      100.0,
+      7.1174716532837285,
+      100.0
+    ],
+    "Remove Water": [
+      0.0,
+      100.0,
+      100.0,
+      100.0,
+      7.1174716532837285,
+      100.0
+    ],
+    "Remove Soil": [
+      0.0,
+      100.0,
+      100.0,
+      100.0,
+      7.1174716532837285,
+      100.0
+    ],
+    "Remove Rise-rate": [
+      0.0,
+      100.0,
+      100.0,
+      100.0,
+      7.1174716532837285,
+      100.0
+    ],
+    "Remove Hum+Temp": [
+      0.0,
+      100.0,
+      100.0,
+      100.0,
+      7.1174716532837285,
+      100.0
+    ],
+    "Water-only": [
+      0.0,
+      100.0,
+      100.0,
+      100.0,
+      7.1174716532837285,
+      100.0
+    ]
+  },
+  "d4_metrics": {
+    "normal_dry": {
+      "acc": 100.0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "TP": 0,
+      "FP": 0,
+      "TN": 864,
+      "FN": 0
+    },
+    "monsoon": {
+      "acc": 75.69444444444444,
+      "precision": 100.0,
+      "recall": 86.28472222222221,
+      "f1": 92.63746505125813,
+      "TP": 497,
+      "FP": 0,
+      "TN": 288,
+      "FN": 79
+    },
+    "flash_flood": {
+      "acc": 24.930555555555557,
+      "precision": 19.395465994962215,
+      "recall": 77.0,
+      "f1": 30.985915492957744,
+      "TP": 231,
+      "FP": 960,
+      "TN": 180,
+      "FN": 69
+    },
+    "storm_surge": {
+      "acc": 71.66666666666667,
+      "precision": 74.02597402597402,
+      "recall": 95.0,
+      "f1": 83.21167883211679,
+      "TP": 342,
+      "FP": 120,
+      "TN": 60,
+      "FN": 18
+    },
+    "urban_drain": {
+      "acc": 100.0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "TP": 0,
+      "FP": 0,
+      "TN": 576,
+      "FN": 0
+    },
+    "recession": {
+      "acc": 0.0,
+      "precision": 0,
+      "recall": 0.0,
+      "f1": 0,
+      "TP": 0,
+      "FP": 0,
+      "TN": 0,
+      "FN": 576
+    }
+  },
+  "overall_accuracy": 58.43621399176955
+}
