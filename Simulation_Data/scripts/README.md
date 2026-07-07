@@ -50,6 +50,19 @@ python scripts/fetch_terraclimate_data.py
 
 All scripts run from the `Simulation_Data/` directory. Output datasets go to `scripts/datasets/`, figures to `figures/`.
 
+## Reproducibility
+
+All stochastic runs use a **fixed random seed** (`random.seed(42)` in Python, `np.random.seed(42)` in NumPy-based scripts) so that every noise realisation is exactly reproducible. The seed is set at the top of each script that uses randomness:
+
+| Script | Seed | Source of randomness |
+|--------|------|---------------------|
+| `generate_data.py` | `random.seed(42)` | Sensor noise (water level, soil moisture) |
+| `generate_hw_plots.py` | `np.random.seed(42)` | Monte Carlo noise for hardware accuracy |
+| `ieee_rigorous_analysis.py` | `random.seed(42)` | Monte Carlo N=100 noise realisations |
+| `rigorous_analysis.py` | `random.seed(42)` | (Deterministic — seed included for consistency) |
+
+Running any script twice with the same seed produces identical outputs. This is verified by the JSON hash checksums in the `datasets/` directory.
+
 ## Dependencies
 
 - Python 3.8+ (stdlib only for data generation and analysis scripts)
