@@ -1,0 +1,3 @@
+date,latitude,longitude,soil_mm,pct_saturation,climatology_min_mm=264,climatology_max_mm=1958,climatology_mean_mm=1603
+2011-05-01,30.4457,-91.1916,637.0,32.5
+2011-06-01,30.4457,-91.1916,460.0,23.5

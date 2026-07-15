@@ -9,7 +9,7 @@ Stations:
   06934500 - Missouri River at Hermann, MO (Midwest 2019)
 
 API: USGS NWIS Instantaneous Values
-     https://api.waterdata.usgs.gov/nwis/iv/
+     https://waterservices.usgs.gov/nwis/iv/
      Free, anonymous, no registration required.
 
 Output: CSV files saved to datasets/usgs/
@@ -46,7 +46,7 @@ STATIONS = [
 def fetch_station(site_id, start_date, end_date):
     """Fetch water level (parameter 00065) from USGS NWIS Instantaneous Values API."""
     url = (
-        f"https://api.waterdata.usgs.gov/nwis/iv/"
+        f"https://waterservices.usgs.gov/nwis/iv/"
         f"?format=json&sites={site_id}"
         f"&parameterCd=00065"
         f"&startDT={start_date}&endDT={end_date}"
