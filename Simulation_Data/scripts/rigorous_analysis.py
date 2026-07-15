@@ -32,10 +32,15 @@ def norm_rise(rise_cmh):
 def norm_hum(hum_pct):
     return min(100, max(0, 100 * (hum_pct - 60) / 35))
 
-def compute_risk(water_cm, rise_cmh, soil_pct, hum_pct, weights):
-    w_w, w_s, w_rr, w_h, _ = weights
+def norm_temp(temp_c):
+    """Normalize temperature: 20degC -> 0 (cool), 40degC -> 100 (hot)."""
+    return min(100, max(0, 100 * (temp_c - 20) / 20))
+
+def compute_risk(water_cm, rise_cmh, soil_pct, hum_pct, temp_c, weights):
+    w_w, w_s, w_rr, w_h, w_t = weights
     R = w_w * norm_water(water_cm) + w_s * norm_soil(soil_pct) \
-        + w_rr * norm_rise(rise_cmh) + w_h * norm_hum(hum_pct)
+        + w_rr * norm_rise(rise_cmh) + w_h * norm_hum(hum_pct) \
+        + w_t * norm_temp(temp_c)
     return R
 
 def classify(R):
@@ -45,7 +50,7 @@ def classify(R):
 SCENARIOS = {
     "normal_dry": {
         "name": "Normal Dry", "n": 864, "dt": 300,
-        "func": lambda t: (5.0, 0.1, 15, 45),
+        "func": lambda t: (5.0, 0.1, 15, 45, 22),
         "gt": [(0, 72, "SAFE")],
     },
     "monsoon": {
@@ -54,7 +59,8 @@ SCENARIOS = {
             8.0 + max(0, min(42, 1.2 * max(0, t-6))),
             1.2 if 6 < t < 42 else 0,
             35 + 65 * min(1, max(0, t-6)/36),
-            78 + 20 * min(1, max(0, t-6)/36)),
+            78 + 20 * min(1, max(0, t-6)/36),
+            30),
         "gt": [(0, 6, "SAFE"), (6, 24, "WARNING"), (24, 72, "EVACUATE")],
     },
     "flash_flood": {
@@ -63,7 +69,8 @@ SCENARIOS = {
             5.0 + max(0, min(40, 8.0 * max(0, t-1))),
             8.0 if 1 < t < 7 else 0,
             60 + 35 * min(1, max(0, t-1)/5),
-            92),
+            92,
+            28),
         "gt": [(0, 1, "SAFE"), (1, 3, "WARNING"), (3, 8, "EVACUATE"), (8, 24, "SAFE")],
     },
     "storm_surge": {
@@ -71,7 +78,8 @@ SCENARIOS = {
         "func": lambda t: (
             10.0 + min(30, 7.5 * max(0, t)) if t < 4 else 40.0,
             7.5 if t < 4 else 0,
-            85, 95),
+            85, 95,
+            30),
         "gt": [(0, 0.5, "SAFE"), (0.5, 2, "WARNING"), (2, 14, "EVACUATE"), (14, 18, "SAFE")],
     },
     "urban_drain": {
@@ -79,12 +87,13 @@ SCENARIOS = {
         "func": lambda t: (
             6.0 + 3.0 * math.sin(2 * math.pi * t / 12.4) + (3.5 if 4 < t < 12 else 0),
             0.5 if 4 < t < 12 else 0,
-            50, 82),
+            50, 82,
+            34),
         "gt": [(0, 72, "SAFE")],
     },
     "recession": {
         "name": "Recession", "n": 576, "dt": 300,
-        "func": lambda t: (max(5, 45 - 0.8 * t), -0.8, 70, 75),
+        "func": lambda t: (max(5, 45 - 0.8 * t), -0.8, 70, 75, 26),
         "gt": [(0, 6, "EVACUATE"), (6, 24, "WARNING"), (24, 48, "SAFE")],
     },
 }
@@ -98,21 +107,23 @@ def get_gt(skey, t):
 def generate_trace(skey, noise=0):
     s = SCENARIOS[skey]
     trace = []
-    for i in range(s["n"]):
-        t = i * s["dt"] / 3600
-        wl, rr, soil, hum = s["func"](t)
+    for i in range(s['n']):
+        t = i * s['dt'] / 3600
+        wl, rr, soil, hum, temp = s['func'](t)
         if noise:
             wl += random.gauss(0, 1.5 * noise)
             soil += random.gauss(0, 5 * noise)
             hum += random.gauss(0, 5 * noise)
-        trace.append({"t": t, "wl": max(0, wl), "rr": max(0, rr),
-                      "soil": max(0, min(100, soil)),
-                      "hum": max(0, min(100, hum))})
+            temp += random.gauss(0, 1.5 * noise)
+        trace.append({'t': t, 'wl': max(0, wl), 'rr': max(0, rr),
+                      'soil': max(0, min(100, soil)),
+                      'hum': max(0, min(100, hum)),
+                      'temp': max(10, min(50, temp))})
     return trace
 
 def classify_trace(trace, weights):
-    return [{"R": compute_risk(pt["wl"], pt["rr"], pt["soil"], pt["hum"], weights),
-             "tier": classify(compute_risk(pt["wl"], pt["rr"], pt["soil"], pt["hum"], weights))}
+    return [{'R': compute_risk(pt['wl'], pt['rr'], pt['soil'], pt['hum'], pt['temp'], weights),
+             'tier': classify(compute_risk(pt['wl'], pt['rr'], pt['soil'], pt['hum'], pt['temp'], weights))}
             for pt in trace]
 
 # ── Generate all traces ──

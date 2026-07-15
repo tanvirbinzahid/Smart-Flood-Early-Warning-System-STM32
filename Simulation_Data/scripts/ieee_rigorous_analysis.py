@@ -18,47 +18,54 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 random.seed(42)
 
-# ──── RISK INDEX FUNCTION ────
-def compute_risk(water_cm, rise_cmh, soil_pct, hum_pct, temp_c=28):
+def norm_temp(temp_c):
+    """Normalize temperature: 20°C → 0 (cool), 40°C → 100 (hot)."""
+    return min(100, max(0, 100 * (temp_c - 20) / 20))
+
+# ──── SCENARIO DEFINITIONS ────
+# Each scenario returns (time_h, water_cm, rise_cmh, soil_pct, hum_pct, temp_c)
+SCENARIOS = {
+    "normal_dry":    {"name": "Normal Dry",     "n": 864,  "dt": 300,  "base": lambda t: (5.0, 0.1, 15, 45, 22)},
+    "monsoon":       {"name": "Monsoon Gradual","n": 864,  "dt": 300,  "base": lambda t: (
+        8.0 + max(0, min(42, 1.2 * max(0, t-6))), 
+        1.2 if 6 < t < 42 else 0, 
+        35 + 65 * min(1, max(0, t-6)/36), 
+        78 + 20 * min(1, max(0, t-6)/36),
+        30)},
+    "flash_flood":   {"name": "Flash Flood",    "n": 1440, "dt": 60,  "base": lambda t: (
+        5.0 + max(0, min(40, 8.0 * max(0, t-1))),
+        8.0 if 1 < t < 7 else 0,
+        60 + 35 * min(1, max(0, t-1)/5),
+        92,
+        28)},
+    "storm_surge":   {"name": "Storm Surge",    "n": 540,  "dt": 120, "base": lambda t: (
+        10.0 + min(30, 7.5 * max(0, t)) if t < 4 else 40.0,
+        7.5 if t < 4 else 0,
+        85, 95,
+        30)},
+    "urban_drain":   {"name": "Urban Drain",    "n": 576,  "dt": 300, "base": lambda t: (
+        6.0 + 3.0 * math.sin(2 * math.pi * t / 12.4) + (3.5 if 4 < t < 12 else 0),
+        0.5 if 4 < t < 12 else 0,
+        50, 82,
+        34)},
+    "recession":     {"name": "Recession",      "n": 576,  "dt": 300, "base": lambda t: (
+        max(5, 45 - 0.8 * t),
+        -0.8,
+        70, 75,
+        26)},
+}
+
+def compute_risk(water_cm, rise_cmh, soil_pct, hum_pct, temp_c):
     D_SAFE, D_EVAC = 10.0, 40.0
     W = 0 if water_cm <= D_SAFE else 100 if water_cm >= D_EVAC else 100 * (water_cm - D_SAFE) / (D_EVAC - D_SAFE)
     S = min(100, max(0, soil_pct))
     RR = min(100, max(0, 100 * rise_cmh / 5.0))
     H = min(100, max(0, 100 * (hum_pct - 60) / 35))
-    T = 0
+    T = norm_temp(temp_c)
     return round(0.50 * W + 0.29 * S + 0.15 * RR + 0.03 * H + 0.03 * T, 1)
 
 def get_tier(r):
     return "EVACUATE" if r >= 75 else ("WARNING" if r >= 40 else "SAFE")
-
-# ──── SCENARIO DEFINITIONS ────
-# Each scenario as a list of (time_h, water_cm, rise_cmh, soil_pct, hum_pct)
-# Based on CSV ground truth from the fixed simulation
-SCENARIOS = {
-    "normal_dry":    {"name": "Normal Dry",     "n": 864,  "dt": 300,  "base": lambda t: (5.0, 0.1, 15, 45)},
-    "monsoon":       {"name": "Monsoon Gradual","n": 864,  "dt": 300,  "base": lambda t: (
-        8.0 + max(0, min(42, 1.2 * max(0, t-6))), 
-        1.2 if 6 < t < 42 else 0, 
-        35 + 65 * min(1, max(0, t-6)/36), 
-        78 + 20 * min(1, max(0, t-6)/36))},
-    "flash_flood":   {"name": "Flash Flood",    "n": 1440, "dt": 60,  "base": lambda t: (
-        5.0 + max(0, min(40, 8.0 * max(0, t-1))),
-        8.0 if 1 < t < 7 else 0,
-        60 + 35 * min(1, max(0, t-1)/5),
-        92)},
-    "storm_surge":   {"name": "Storm Surge",    "n": 540,  "dt": 120, "base": lambda t: (
-        10.0 + min(30, 7.5 * max(0, t)) if t < 4 else 40.0,
-        7.5 if t < 4 else 0,
-        85, 95)},
-    "urban_drain":   {"name": "Urban Drain",    "n": 576,  "dt": 300, "base": lambda t: (
-        6.0 + 3.0 * math.sin(2 * math.pi * t / 12.4) + (3.5 if 4 < t < 12 else 0),
-        0.5 if 4 < t < 12 else 0,
-        50, 82)},
-    "recession":     {"name": "Recession",      "n": 576,  "dt": 300, "base": lambda t: (
-        max(5, 45 - 0.8 * t),
-        -0.8,
-        70, 75)},
-}
 
 def generate_trace(scenario_key, noise_scale=1.0):
     """Generate a deterministic or noisy trace."""
@@ -66,15 +73,17 @@ def generate_trace(scenario_key, noise_scale=1.0):
     trace = []
     for i in range(s["n"]):
         t = i * s["dt"] / 3600
-        wl, rr, soil, hum = s["base"](t)
+        wl, rr, soil, hum, temp = s['base'](t)
         if noise_scale > 0:
             wl += random.gauss(0, 1.5 * noise_scale)
             soil += random.gauss(0, 5 * noise_scale)
             hum += random.gauss(0, 5 * noise_scale)
+            temp += random.gauss(0, 1.5 * noise_scale)
         wl = max(0, wl)
         soil = max(0, min(100, soil))
         hum = max(0, min(100, hum))
-        trace.append({"t": t, "wl": wl, "rr": max(0, rr), "soil": soil, "hum": hum})
+        temp = max(10, min(50, temp))
+        trace.append({'t': t, 'wl': wl, 'rr': max(0, rr), 'soil': soil, 'hum': hum, 'temp': temp})
     return trace
 
 def classify_index(trace, weights):
@@ -82,11 +91,12 @@ def classify_index(trace, weights):
     result = []
     for pt in trace:
         D_SAFE, D_EVAC = 10.0, 40.0
-        W = 0 if pt["wl"] <= D_SAFE else 100 if pt["wl"] >= D_EVAC else 100 * (pt["wl"] - D_SAFE) / (D_EVAC - D_SAFE)
-        S = min(100, max(0, pt["soil"]))
-        RR = min(100, max(0, 100 * pt["rr"] / 5.0))
-        H = min(100, max(0, 100 * (pt["hum"] - 60) / 35))
-        R = w_w*W + w_s*S + w_rr*RR + w_h*H + w_t*0
+        W = 0 if pt['wl'] <= D_SAFE else 100 if pt['wl'] >= D_EVAC else 100 * (pt['wl'] - D_SAFE) / (D_EVAC - D_SAFE)
+        S = min(100, max(0, pt['soil']))
+        RR = min(100, max(0, 100 * pt['rr'] / 5.0))
+        H = min(100, max(0, 100 * (pt['hum'] - 60) / 35))
+        T = norm_temp(pt['temp'])
+        R = w_w*W + w_s*S + w_rr*RR + w_h*H + w_t*T
         result.append({"R": R, "tier": get_tier(R)})
     return result
 

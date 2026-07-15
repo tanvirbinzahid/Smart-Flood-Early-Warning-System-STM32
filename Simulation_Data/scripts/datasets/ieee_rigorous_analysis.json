@@ -147,48 +147,48 @@
     {
       "method": "Full Composite Risk",
       "scenario": "normal_dry",
-      "r_min": 4.6499999999999995,
-      "r_max": 4.6499999999999995,
+      "r_min": 4.949999999999999,
+      "r_max": 4.949999999999999,
       "tw": null,
       "te": null
     },
     {
       "method": "Full Composite Risk",
       "scenario": "monsoon",
-      "r_min": 11.692857142857141,
-      "r_max": 85.55636574074073,
-      "tw": 16.916666666666668,
-      "te": 30.583333333333332
+      "r_min": 13.192857142857141,
+      "r_max": 87.05636574074073,
+      "tw": 16.333333333333332,
+      "te": 30.0
     },
     {
       "method": "Full Composite Risk",
       "scenario": "flash_flood",
-      "r_min": 20.142857142857142,
-      "r_max": 95.29285714285714,
-      "tw": 1.8666666666666667,
-      "te": 4.15
+      "r_min": 21.34285714285714,
+      "r_max": 96.49285714285715,
+      "tw": 1.7833333333333334,
+      "te": 4.066666666666666
     },
     {
       "method": "Full Composite Risk",
       "scenario": "storm_surge",
-      "r_min": 42.65,
-      "r_max": 92.23333333333333,
+      "r_min": 44.15,
+      "r_max": 93.73333333333333,
       "tw": null,
-      "te": 2.6
+      "te": 2.5
     },
     {
       "method": "Full Composite Risk",
       "scenario": "urban_drain",
-      "r_min": 16.385714285714283,
-      "r_max": 21.444450112356147,
+      "r_min": 18.485714285714284,
+      "r_max": 23.54445011235615,
       "tw": null,
       "te": null
     },
     {
       "method": "Full Composite Risk",
       "scenario": "recession",
-      "r_min": 21.585714285714282,
-      "r_max": 71.58571428571429,
+      "r_min": 22.48571428571428,
+      "r_max": 72.4857142857143,
       "tw": null,
       "te": null
     }
@@ -203,26 +203,26 @@
       "n_evac": 0
     },
     "monsoon": {
-      "t_warn_mean": 15.4,
-      "t_warn_std": 0.72,
-      "t_evac_mean": 29.07,
-      "t_evac_std": 0.68,
+      "t_warn_mean": 14.76,
+      "t_warn_std": 0.64,
+      "t_evac_mean": 28.5,
+      "t_evac_std": 0.6,
       "n_warn": 100,
       "n_evac": 100
     },
     "flash_flood": {
-      "t_warn_mean": 1.62,
-      "t_warn_std": 0.1,
-      "t_evac_mean": 3.9,
+      "t_warn_mean": 1.47,
+      "t_warn_std": 0.18,
+      "t_evac_mean": 3.82,
       "t_evac_std": 0.11,
       "n_warn": 100,
       "n_evac": 100
     },
     "storm_surge": {
-      "t_warn_mean": 2.13,
-      "t_warn_std": 0.81,
-      "t_evac_mean": 2.37,
-      "t_evac_std": 0.12,
+      "t_warn_mean": 2.28,
+      "t_warn_std": 0.34,
+      "t_evac_mean": 2.27,
+      "t_evac_std": 0.11,
       "n_warn": 100,
       "n_evac": 100
     },
@@ -235,12 +235,12 @@
       "n_evac": 0
     },
     "recession": {
-      "t_warn_mean": 12.56,
-      "t_warn_std": 11.9,
-      "t_evac_mean": 2.51,
-      "t_evac_std": 1.48,
+      "t_warn_mean": 1.75,
+      "t_warn_std": 2.87,
+      "t_evac_mean": 1.63,
+      "t_evac_std": 1.54,
       "n_warn": 100,
-      "n_evac": 58
+      "n_evac": 99
     }
   },
   "d3_ablation": {
@@ -305,34 +305,34 @@
       "FN": 0
     },
     "monsoon": {
-      "acc": 75.69444444444444,
+      "acc": 77.31481481481481,
       "precision": 100.0,
-      "recall": 86.28472222222221,
-      "f1": 92.63746505125813,
-      "TP": 497,
+      "recall": 87.5,
+      "f1": 93.33333333333333,
+      "TP": 504,
       "FP": 0,
       "TN": 288,
-      "FN": 79
+      "FN": 72
     },
     "flash_flood": {
-      "acc": 24.930555555555557,
-      "precision": 19.395465994962215,
-      "recall": 77.0,
-      "f1": 30.985915492957744,
-      "TP": 231,
+      "acc": 25.624999999999996,
+      "precision": 19.732441471571907,
+      "recall": 78.66666666666666,
+      "f1": 31.550802139037433,
+      "TP": 236,
       "FP": 960,
       "TN": 180,
-      "FN": 69
+      "FN": 64
     },
     "storm_surge": {
-      "acc": 71.66666666666667,
-      "precision": 74.02597402597402,
-      "recall": 95.0,
-      "f1": 83.21167883211679,
-      "TP": 342,
+      "acc": 72.22222222222221,
+      "precision": 74.19354838709677,
+      "recall": 95.83333333333334,
+      "f1": 83.63636363636363,
+      "TP": 345,
       "FP": 120,
       "TN": 60,
-      "FN": 18
+      "FN": 15
     },
     "urban_drain": {
       "acc": 100.0,
@@ -355,5 +355,5 @@
       "FN": 576
     }
   },
-  "overall_accuracy": 58.43621399176955
+  "overall_accuracy": 58.9917695473251
 }
