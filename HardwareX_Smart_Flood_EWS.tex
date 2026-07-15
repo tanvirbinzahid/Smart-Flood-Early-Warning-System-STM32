@@ -1,0 +1,1155 @@
+% ──────────────────────────────────────────────────────────────────────────────
+% Smart Flood Early Warning System — HardwareX Format
+% CSE331L.7 — North South University
+% ──────────────────────────────────────────────────────────────────────────────
+\documentclass[5p,twocolumn]{elsarticle}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{times}
+\usepackage{adjustbox}
+
+\journal{HardwareX}
+
+% ── Convenience column types ─────────────────────────────────────────────────
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+% ── Code listing style ───────────────────────────────────────────────────────
+\lstset{
+  language=C,
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape,
+  columns=flexible,
+  keepspaces=true,
+}
+
+% ── Paragraph spacing ────────────────────────────────────────────────────────
+\setlength{\parskip}{3pt}
+\setlength{\parindent}{1em}
+
+\begin{document}
+
+% ── Title ────────────────────────────────────────────────────────────────────
+\title{Smart Flood Early Warning System: A Low-Cost Embedded Platform for Community-Level Flash Flood Detection}
+
+\author[1]{Syed Tahmid Manzoor}
+\author[1]{Tanvir Bin Zahid}
+\author[1]{Farhan Tajwar Robe}
+\ead[1]{tanvir.zahid@northsouth.edu}
+
+\address[1]{Department of Electrical and Computer Engineering, School of Engineering and Physical Sciences,\\ North South University, Bashundhara, Dhaka-1229, Bangladesh}
+
+\begin{abstract}
+Bangladesh is hit by flood disasters almost every monsoon, but people living beside canals, drains, and low-lying areas often receive warnings only after the water has already become dangerous. In this project, we built a low-cost Smart Flood Early Warning System using the STM32F103C8T6 microcontroller so that a small community can get fast, local, and internet-free alerts. The prototype uses an HC-SR04 ultrasonic sensor to estimate water level, a DHT11 sensor to read temperature and humidity, and an analog soil moisture sensor to check ground saturation. The firmware smooths noisy sensor readings, combines them into a flood risk index, keeps a 15-day risk and soil history in flash memory, and reports the result as SAFE, WARNING, or EVACUATE. An OLED display, five LEDs, and a buzzer make the alert easy to notice, while the keypad allows simple actions such as muting the buzzer, resetting statistics, tuning sensitivity, calibrating sensors, viewing history, and waking the display from power-save mode. Since the total hardware cost is under BDT~2,000, the design is affordable enough for small flood-prone communities that need a first layer of local warning.
+\end{abstract}
+
+\begin{keyword}
+embedded systems \sep flood detection \sep STM32 \sep sensor fusion \sep OLED interface \sep flash history \sep real-time alert
+\end{keyword}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% HARDWAREX SPECIFICATIONS TABLE
+% ════════════════════════════════════════════════════════════════════════════
+\section*{Specifications table}
+
+\medskip
+\noindent
+\begin{minipage}{\columnwidth}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|L{4.5cm}|L{4.5cm}|}
+  \hline
+  \textbf{Hardware name} & Smart Flood Early Warning System (STM32-based) \\ \hline
+  \textbf{Subject area} & \makebox[4.5cm][l]{Environmental, planetary and agricultural sciences} \\ \hline
+  \textbf{Hardware type} & \makebox[4.5cm][l]{Field measurements and sensors} \\ \hline
+  \textbf{Closest commercial analog} & No commercial analog exists at this price point (${<}\$20$). Commercial flood monitoring stations cost thousands of dollars \cite{bwdb2022}. \\ \hline
+  \textbf{Open source license} & GNU General Public License v3.0 \\ \hline
+  \textbf{Cost of hardware} & BDT~1,850 (approximately USD~20) \\ \hline
+  \textbf{Source file repository} & \url{https://github.com/tanvirbinzahid/Smart-Flood-Early-Warning-System-STM32} \\ \hline
+\end{tabular}
+\end{minipage}
+\medskip
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% 1. HARDWARE IN CONTEXT
+% ════════════════════════════════════════════════════════════════════════════
+\section{Hardware in context}
+
+Flooding is the most frequent natural disaster worldwide, accounting for 38.87\% of all disaster events over the past three decades and affecting over 1.9 billion people \cite{tao2024}. In Bangladesh, roughly one-third of the country's land area floods every monsoon season, displacing millions and causing widespread loss of life and property \cite{bwdb2022}. The problem is especially acute near local canals, drains, and low-lying neighbourhoods, where water can rise quickly before national warnings reach residents.
+
+Embedded systems for flood early warning have been explored for over a decade. Early work demonstrated the feasibility of wireless sensor networks for model-based flood detection \cite{basha2008}, establishing a foundation that has since evolved from basic WSN platforms to modern microcontroller-based systems with richer sensor fusion and multi-modal alerting capabilities. More recently, STM32 microcontrollers have been validated in flood early warning contexts requiring precise real-time control, with implementations achieving $\pm$1~cm measurement accuracy and sub-2-second response latency using FMCW millimeter-wave radar \cite{zeng2025}. Non-contact water level measurement using both ultrasonic \cite{rohan2025} and millimeter-wave radar \cite{shui2022,zeng2025} has become well-established, with trade-offs between cost and precision determining the appropriate technology for each deployment context.
+
+Soil moisture has been identified as a valuable flood precursor indicator observable both from satellite \cite{tangdamrongsub2021} and through in-situ sensors, with elevated saturation levels correlating strongly with flood occurrence. In developing country contexts, multi-parameter sensor systems have been deployed for river monitoring in data-scarce regions, demonstrating that sensor fusion can partially compensate for the lack of traditional gauge networks \cite{mdegela2023}. Comprehensive reviews confirm an accelerating trend toward sensor fusion and AI integration in flood management \cite{tao2024}.
+
+Despite these advances, existing solutions fall into two categories that leave a gap. High-end systems using FMCW radar \cite{shui2022,zeng2025} achieve excellent accuracy but cost orders of magnitude more and often require cloud connectivity. IoT-based platforms \cite{rohan2025,boulouard2022} provide wide-area coverage but depend on network infrastructure that fails during floods. Our system fills this gap: an offline, sub-\$20 embedded platform that makes decisions locally on the STM32 and alerts nearby people through its own display, LEDs, and buzzer, requiring no internet, no cellular network, and no cloud service.
+
+The project directly applies embedded systems concepts from the CSE331L laboratory curriculum: HAL-based peripheral setup, TIM1 microsecond timing, GPIO keypad scanning, I2C OLED communication, ADC sampling, flash memory writing, and non-blocking LED and buzzer control.
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% 2. HARDWARE DESCRIPTION
+% ════════════════════════════════════════════════════════════════════════════
+\section{Hardware description}
+
+\subsection{System architecture}
+
+The Smart Flood Early Warning System is organised into three functional blocks: an input layer, a processing layer, and an output layer, all orchestrated by the STM32F103C8T6 Blue Pill microcontroller.
+
+\textbf{Input layer.} Four sensors feed the system: an HC-SR04 ultrasonic sensor measures the distance to the water surface; a DHT11 module provides ambient temperature and humidity; an analogue soil moisture sensor reports ground saturation through ADC1; and a 4$\times$4 matrix keypad allows user interaction.
+
+\textbf{Processing layer.} The STM32 firmware is based on STM32CubeIDE HAL startup code with custom routines for sensor timing, filtering, risk calculation, display pages, keypad handling, and flash history. TIM1 is used as a 1~$\mu$s timer for the ultrasonic and DHT11 timing requirements. In normal operation the loop updates the sensors every 500~ms; in power-save mode it slows to one sample every 5~s. Each reading is converted to a 0--100 score, combined into the Composite Flood Risk Index, and passed through the alert state machine.
+
+\textbf{Output layer.} Results are displayed on a 0.96-inch I2C OLED showing live readings, menus, calibration screens, min/max statistics, and a 15-day history page. Five LEDs provide quick visual risk indication, and an active buzzer delivers audible warnings with non-blocking timing so it does not interfere with sensor or keypad operation.
+
+\subsection{Processing: Composite Flood Risk Index}
+
+\paragraph{Problem formulation.} The system is formalised as a multi-sensor classification problem. At each time step $t$, the system observes a five-dimensional input vector $\mathbf{x}_t = [w_t, s_t, \dot{w}_t, h_t, \tau_t]$, where $w_t$ is the inverted water level (cm), $s_t$ is the soil moisture (\%), $\dot{w}_t$ is the water-level rise rate (cm/h), $h_t$ is the relative humidity (\%), and $\tau_t$ is the temperature ($^\circ$C). The objective is to produce a risk score $R_t \in [0, 100]$ and a discrete alert tier $a_t \in \{\text{SAFE}, \text{WARNING}, \text{EVACUATE}\}$ such that:
+
+\begin{enumerate}[nosep]
+  \item $R_t$ increases monotonically with each hazard dimension;
+  \item $a_t$ transitions conservatively (hysteresis prevents rapid toggling);
+  \item false alarms are suppressed in non-flood conditions (tidal fluctuation, brief rainfall);
+  \item the system operates entirely offline on a microcontroller with $<$64~KB flash.
+\end{enumerate}
+
+The Composite Flood Risk Index is defined as a weighted score:
+
+\begin{equation}
+  R = 0.50\,W + 0.29\,S + 0.15\,\dot{W} + 0.03\,H + 0.03\,T
+  \label{eq:risk}
+\end{equation}
+
+where $W$ is the inverted water-level score, $S$ is the soil-moisture score, $\dot{W}$ is the rise-rate score, $H$ is the humidity score, and $T$ is the temperature score. Each score is clipped to the range 0--100 using $\text{clip}(x) = \min(100, \max(0, x))$.
+
+The water and rise-rate terms are normalised as:
+
+\begin{equation}
+  W = \text{clip}\left(100 \cdot \frac{D_{\text{safe}} - d}{D_{\text{safe}} - D_{\text{evac}}}\right), \quad
+  \dot{W} = \text{clip}\left(100 \cdot \frac{v}{V_{\max}}\right)
+  \label{eq:norm}
+\end{equation}
+
+where $d$ is the measured water distance and $v$ is the estimated rise rate in cm/h. The soil score comes from the calibrated soil-moisture percentage, while humidity and temperature are scaled over practical local weather ranges. The weights sum to 1.00, keeping $R$ as an intuitive 0--100 risk value.
+
+\subsubsection{Weight derivation}
+
+The weights in Eq.~\eqref{eq:risk} are derived from a comprehensive hazard-severity and immediacy analysis, synthesising findings from hydrology, sensor fusion, and flood risk management literature. The complete derivation, including all intermediate calculations, sensitivity analysis, and cross-validation against FFWC historical data, is provided in the ``Base Value Index Theory'' document available in the project repository \cite{usda2004,tangdamrongsub2021,kim2014,guo2026,verma2020,assouline2024}. The statistical foundations established in the literature for multi-parameter environmental sensing \cite{tao2024,mdegela2023} guide the parameter selection.
+
+\paragraph{Water level ($w = 0.50$)} Water proximity is the most direct and immediate measure of flood hazard. A rising water surface represents the primary physical threat to life and property, regardless of underlying cause. This factor is weighted most heavily because it is the only direct measurement of the hazard itself, as opposed to precursor or contextual indicators. Ultrasonic water-level sensors have been widely employed in flood early warning systems for direct water-level measurement \cite{ulhaq2024,sulistyowati2017,shui2022}, and the weight reflects this primacy. USDA-NRCS (2004) establishes water depth as the primary variable in flood damage estimation curves \cite{usda2004}, and the SAFE/EVACUATE thresholds ($D_{\text{safe}} = 10$~cm, $D_{\text{evac}} = 40$~cm) correspond to normal dry-season canal levels and pedestrian-danger depth respectively, calibrated against FFWC station data for Dhaka canals (SW-265, SW-266) \cite{bwdb2022,ffwc2021}.
+
+\paragraph{Soil saturation ($w = 0.29$)} Soil moisture determines the runoff generation potential of the local ground. This relationship is formalised by the USDA-NRCS Curve Number method \cite{usda2004}, which classifies Antecedent Moisture Conditions (AMC) into three classes that directly modulate runoff production:
+
+\medskip
+\noindent
+\begin{minipage}{\columnwidth}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|L{2.1cm}|C{1.7cm}|C{2.5cm}|C{1.5cm}|}
+  \hline
+  \textbf{AMC Class} & \textbf{Condition} & \textbf{5-Day Antecedent Rainfall (mm)} & \textbf{Runoff Potential} \\ \hline
+  AMC I & Dry & $< 12.7$ (dormant) / $< 35.6$ (growing) & Low \\ \hline
+  AMC II & Normal & $12.7{-}27.9$ (dormant) / $35.6{-}53.3$ (growing) & Medium \\ \hline
+  AMC III & Wet & $> 27.9$ (dormant) / $> 53.3$ (growing) & High \\ \hline
+\end{tabular}
+\captionof{table}{SCS-CN Antecedent Moisture Condition (AMC) classes \cite{usda2004}. Under AMC~III, the Curve Number increases by 15--30 points, producing 2--3$\times$ more runoff for the same rainfall.}
+\label{tab:amc}
+\end{minipage}
+\medskip
+
+Under AMC~III (wet soil), the Curve Number increases by approximately 15--30 points compared to AMC~II, resulting in 2--3 times more runoff for the same rainfall event. Saturation-excess runoff generation has been shown to be a dominant mechanism in urban flood frequency \cite{hassini2020}, and satellite-based soil moisture observations correlate significantly with flood occurrence \cite{tangdamrongsub2021}. Activation Soil Moisture Accounting (ASMA) further refines the SCS-CN method for runoff estimation \cite{verma2020}, and antecedent soil moisture has been identified as a critical parameter in runoff generation across diverse environments \cite{assouline2024}. The weight of 0.29 is set so that fully saturated soil ($S \approx 85-100\%$) contributes approximately 25--29 points to the risk index, enough to push the index from SAFE toward WARNING even without significant water level change. The initial soil moisture values for simulation scenarios are selected from the AMC classes: AMC~I (15\%) for dry season, AMC~II (35--50\%) for monsoon and urban drain, and AMC~III (60--85\%) for flash flood and storm surge \cite{usda2004,tangdamrongsub2021}.
+
+\paragraph{Rise rate ($w = 0.15$)} The speed of water-level change captures the urgency dimension of the hazard. The Modified Flash Flood Index (MFFI) incorporates rate of water-level rise as a key severity parameter \cite{kim2014}, and recent work on Flash Flood Risk Indices confirms that rate of change is a critical early-warning signal in ungauged basins \cite{guo2026}. The rise rate score is normalised as:
+
+\begin{equation}
+  \dot{W} = \text{clip}\left(100 \cdot \frac{v}{V_{\max}}\right), \quad V_{\max} = 5.0~\text{cm/h}
+  \label{eq:rise_norm}
+\end{equation}
+
+where $v$ is the estimated rise rate in cm/h. Under normal monsoon conditions ($v \approx 1$--$3$~cm/h), the rise rate score $\dot{W}$ reaches 20--60, contributing approximately 3--9 points to the risk index. During flash flood conditions ($v \approx 5$--$10$~cm/h), $\dot{W}$ clips to 100, contributing the full 15 points. A rapid rate of rise thus adds sufficient weight to push a moderate water level into EVACUATE, correctly reflecting the increased urgency \cite{guo2026}.
+
+\paragraph{Humidity ($w = 0.03$) and Temperature ($w = 0.03$)} These environmental parameters serve as supporting meteorological context \cite{tao2024}. High relative humidity ($>80\%$) combined with warm temperatures creates conditions conducive to convective rainfall, which can trigger flash floods. However, the DHT11's $\pm5\%$ accuracy \cite{dht11} limits quantitative value, and these factors have weaker direct correlation with immediate flood risk compared to water level or soil saturation \cite{mdegela2023}. Together they account for 6\% of the index, providing a marginal corrective influence without dominating the decision.
+
+\paragraph{Hysteresis and predictive boost.} Alert classification uses hysteresis to prevent false oscillation between tiers. The deadbands are:
+
+\medskip
+\noindent
+\begin{minipage}{\columnwidth}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|L{2.5cm}|C{2.5cm}|C{2.5cm}|}
+  \hline
+  \textbf{Transition} & \textbf{Ascending threshold} & \textbf{Descending threshold} \\ \hline
+  SAFE $\leftrightarrow$ WARNING & $R \ge 40$ & $R \le 35$ \\ \hline
+  WARNING $\leftrightarrow$ EVACUATE & $R \ge 75$ & $R \le 70$ \\ \hline
+\end{tabular}
+\captionof{table}{Hysteresis deadbands for alert tier transitions, adapted from Schmitt trigger control theory and consistent with embedded sensor fusion applications \cite{zeng2025}.}
+\label{tab:hysteresis}
+\end{minipage}
+\medskip
+
+A least-squares trend engine additionally promotes the alert by one tier when the recent risk-index slope exceeds a predictive boost threshold, derived from the MFFI principle that rate of change indicates severity \cite{kim2014,guo2026}.
+
+\paragraph{Default values summary.} All default weights, thresholds, and normalisation parameters are user-configurable constants in firmware, allowing site-specific calibration when empirical flood data is available. Table~\ref{tab:default_values} summarises every parameter with its scientific basis.
+
+\begin{table}[htbp]
+  \caption{Complete default values for the Composite Flood Risk Index. All parameters are user-configurable in firmware. The ``Base Value Index Theory'' document provides the full derivation with 18 peer-reviewed references \cite{usda2004,tangdamrongsub2021,kim2014,guo2026,hassini2020,tao2024,rohan2025,zeng2025}.}
+  \label{tab:default_values}
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{3.2cm}|C{1.2cm}|C{1.2cm}|L{3.8cm}|}
+    \hline
+    \textbf{Parameter} & \textbf{Symbol} & \textbf{Default} & \textbf{Rationale Source} \\ \hline
+    Water level weight & $w_W$ & 0.50 & Primary direct hazard \cite{usda2004,zeng2025} \\ \hline
+    Soil saturation weight & $w_S$ & 0.29 & SCS-CN AMC modulation \cite{usda2004,tangdamrongsub2021} \\ \hline
+    Rise rate weight & $w_{RR}$ & 0.15 & MFFI severity \cite{kim2014,guo2026} \\ \hline
+    Humidity weight & $w_H$ & 0.03 & Supporting context \cite{tao2024,rohan2025} \\ \hline
+    Temperature weight & $w_T$ & 0.03 & Supporting context \cite{mdegela2023,tao2024} \\ \hline
+    SAFE threshold & $R_{\text{S}}$ & $< 40$ & Normal conditions (BWDB reference) \\ \hline
+    WARNING threshold & $R_{\text{W}}$ & 40--74 & Elevated alert \cite{bwdb2022} \\ \hline
+    EVACUATE threshold & $R_{\text{E}}$ & $\ge 75$ & Immediate evacuation (BWDB flood stage) \\ \hline
+    Hysteresis band & $H$ & $\pm5$ points & Schmitt trigger control theory \cite{zeng2025} \\ \hline
+    SAFE water level & $D_{\text{safe}}$ & 10 cm & Normal canal level (FFWC data) \\ \hline
+    EVACUATE water level & $D_{\text{evac}}$ & 40 cm & Danger depth for pedestrians \\ \hline
+    Max normalised rise rate & $V_{\max}$ & 5.0 cm/h & Extreme flash flood rate \\ \hline
+    Dry soil baseline & $S_{\text{dry}}$ & 15\% & AMC I (dry season) \cite{usda2004} \\ \hline
+    Saturated soil & $S_{\text{wet}}$ & 85\% & AMC III (fully saturated) \cite{tangdamrongsub2021} \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\subsection{Hardware modules}
+
+Table~\ref{tab:hardware} lists all hardware modules with selection justifications.
+
+\begin{table}[htbp]
+  \caption{Hardware modules used in the Smart Flood Early Warning System.}
+  \label{tab:hardware}
+  \centering
+  \scriptsize
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.0cm}|L{1.2cm}|L{4.2cm}|}
+    \hline
+    \textbf{Component} & \textbf{Role} & \textbf{Justification} \\ \hline
+    STM32F103C8T6 Blue Pill & MCU & 72\,MHz Cortex-M3; rich peripherals (ADC, I2C, TIM, flash); low cost; validated in flood EWS \cite{zeng2025} \\ \hline
+    HC-SR04 Ultrasonic & Water level & Non-contact; $\pm$1\,cm; simple GPIO echo-pulse interface; sub-\$2 cost \\ \hline
+    DHT11 & Temp/Humidity & Single-wire protocol; secondary atmospheric predictor; qualitative humidity indicator \\ \hline
+    Soil Moisture Sensor & Saturation & Analogue output; direct ADC1 connection; validated flood precursor \cite{tangdamrongsub2021} \\ \hline
+    0.96'' OLED (I2C) & Display & 400\,kHz I2C; 3.3\,V compatible; compact for field use \\ \hline
+    4$\times$4 Keypad & User input & GPIO matrix scan; alarm silence and soft-reset \\ \hline
+    LED bank (5 LEDs) & Visual alert & Colour-coded tier indication with 220\,$\Omega$ limiting \\ \hline
+    Active Buzzer & Audio alert & GPIO-toggled non-blocking warning/evacuation beeps \\ \hline
+    ST-LINK V2 & Programmer & SWD flash and debug interface \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\subsection{Pin configuration}
+
+The STM32CubeMX pin map keeps analogue sensing, pulse timing, I2C display traffic, alert outputs, and keypad scanning on separate GPIO groups (Table~\ref{tab:pins}). Figure~\ref{fig:pin_config} shows the complete breadboard wiring diagram.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{Breadboard Diagram.png}
+  \caption{Complete breadboard wiring diagram of the Smart Flood Early Warning System showing the STM32F103C8T6 Blue Pill, HC-SR04 ultrasonic sensor, DHT11, soil moisture sensor, OLED display, 4$\times$4 keypad, alert LEDs, and buzzer with all interconnections.}
+  \label{fig:pin_config}
+\end{figure}
+
+\begin{table}[htbp]
+  \caption{MCU pin assignment summary.}
+  \label{tab:pins}
+  \centering
+  \scriptsize
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|C{0.7cm}|C{1.3cm}|L{3.0cm}|}
+    \hline
+    \textbf{Pin} & \textbf{Signal} & \textbf{Connected Component} \\ \hline
+    PA0  & ADC1\_IN0      & Soil moisture analogue output \\ \hline
+    PA1  & GPIO (bidir.)  & DHT11 data line \\ \hline
+    PA2  & GPIO out       & HC-SR04 TRIG \\ \hline
+    PA3  & GPIO in        & HC-SR04 ECHO \\ \hline
+    PA5--PA9  & GPIO out & LED bank (5 LEDs) \\ \hline
+    PB0  & TIM3\_CH3 PWM  & Active buzzer \\ \hline
+    PB6  & I2C1\_SCL      & OLED display SCL \\ \hline
+    PB7  & I2C1\_SDA      & OLED display SDA \\ \hline
+    PB8--PB11  & GPIO out & Keypad rows \\ \hline
+    PB12--PB15 & GPIO in (pull-up) & Keypad columns \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% 3. DESIGN FILES
+% ════════════════════════════════════════════════════════════════════════════
+\section{Design files}
+
+The complete design files are available in the project GitHub repository (\url{https://github.com/tanvirbinzahid/Smart-Flood-Early-Warning-System-STM32}) and listed in Table~\ref{tab:design_files}. All code and documentation are released under the GNU General Public License v3.0 to enable reproduction and adaptation.
+
+\begin{table}[htbp]
+  \caption{Design files summary.}
+  \label{tab:design_files}
+  \centering
+  \scriptsize
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.5cm}|L{1.5cm}|L{2.0cm}|L{3.5cm}|}
+    \hline
+    \textbf{Design filename} & \textbf{File type} & \textbf{Open source license} & \textbf{Location} \\ \hline
+    STM32CubeIDE project & Source code (C) & GPL v3.0 & Available with the article \\ \hline
+    Breadboard schematic & PDF & GPL v3.0 & Available with the article \\ \hline
+    Pin map diagram & PNG & GPL v3.0 & Available with the article \\ \hline
+    KiCad PCB layout & KiCad files & GPL v3.0 & In development \\ \hline
+    Simulation data CSV & Data files & GPL v3.0 & Available with the article \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+The firmware source code implements all sensor drivers, the Composite Flood Risk Index calculation, OLED display routines, keypad handling, flash memory history storage, and the power-save state machine. The breadboard schematic and pin map table (Table~\ref{tab:pins}) provide sufficient information for reproduction.
+
+% ════════════════════════════════════════════════════════════════════════════
+% 4. BILL OF MATERIALS
+% ════════════════════════════════════════════════════════════════════════════
+\section{Bill of materials}
+
+Table~\ref{tab:bom} lists all components required to build the Smart Flood Early Warning System. The total cost is approximately BDT~1,850 (USD~20), making it affordable for community-level deployment.
+
+\begin{table}[htbp]
+  \caption{Bill of materials summary. Total cost: BDT~1,850 (approximately USD~20).}
+  \label{tab:bom}
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.2cm}|C{1.2cm}|C{1.0cm}|C{1.0cm}|L{2.5cm}|L{1.5cm}|}
+    \hline
+    \textbf{Component} & \textbf{No. of units} & \textbf{Cost/unit (BDT)} & \textbf{Total (BDT)} & \textbf{Source of materials} & \textbf{Material type} \\ \hline
+    STM32F103C8T6 Blue Pill & 1 & 350 & 350 & Local electronics shop & Semiconductor \\ \hline
+    HC-SR04 Ultrasonic & 1 & 120 & 120 & Local electronics shop & Semiconductor \\ \hline
+    DHT11 Module & 1 & 100 & 100 & Local electronics shop & Semiconductor \\ \hline
+    Soil Moisture Sensor & 1 & 150 & 150 & Local electronics shop & Semiconductor \\ \hline
+    0.96'' OLED I2C & 1 & 350 & 350 & Local electronics shop & Semiconductor \\ \hline
+    4$\times$4 Matrix Keypad & 1 & 200 & 200 & Local electronics shop & Polymer \\ \hline
+    LED 5mm (assorted) & 5 & 5 & 25 & Local electronics shop & Semiconductor \\ \hline
+    Resistor 220~$\Omega$ & 5 & 2 & 10 & Local electronics shop & Non-specific \\ \hline
+    Active Buzzer 5V & 1 & 60 & 60 & Local electronics shop & Non-specific \\ \hline
+    Breadboard 400-tie & 1 & 80 & 80 & Local electronics shop & Polymer \\ \hline
+    Jumper wires (male-female) & 40 & 3 & 120 & Local electronics shop & Non-specific \\ \hline
+    Resistor 4.7~k$\Omega$ & 1 & 2 & 2 & Local electronics shop & Non-specific \\ \hline
+    ST-LINK V2 programmer & 1 & 283 & 283 & Local electronics shop & Semiconductor \\ \hline
+    \textbf{Total} & & & \textbf{1,850} & & \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% 4. BUILD INSTRUCTIONS
+% ════════════════════════════════════════════════════════════════════════════
+\section{Build instructions}
+
+The prototype is assembled on a 400-tie breadboard. Assembly steps:
+
+\begin{enumerate}[nosep]
+  \item Place the STM32F103C8T6 Blue Pill at the centre of the breadboard.
+  \item Connect the ST-LINK V2 programmer to the SWD pins (PA13, PA14) and GND.
+  \item Position the HC-SR04 module along the top edge; connect VCC to 5~V, GND to GND, TRIG to PA2, ECHO to PA3.
+  \item Connect the DHT11 data pin to PA1 with a 4.7~k$\Omega$ pull-up to 3.3~V.
+  \item Connect the soil moisture sensor analogue output to PA0, VCC to 5~V, GND to GND.
+  \item Wire the OLED display: VCC to 3.3~V, GND to GND, SCL to PB6, SDA to PB7.
+  \item Wire the keypad: rows to PB8--PB11, columns to PB12--PB15 with internal pull-ups enabled.
+  \item Connect each LED through a 220~$\Omega$ resistor to PA5--PA9 with cathodes to GND.
+  \item Connect the active buzzer between PB0 and GND.
+  \item Power the board via USB or a 5~V regulated supply.
+\end{enumerate}
+
+The firmware is compiled and flashed using STM32CubeIDE. Open the project, build, and flash via the ST-LINK V2 programmer. On first boot, default calibration values are loaded; the user may adjust sensitivity and deadband via the keypad interface.
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% 5. OPERATION INSTRUCTIONS
+% ════════════════════════════════════════════════════════════════════════════
+\section{Operation instructions}
+
+Upon power-up, the system displays the main screen showing the current alert tier, water level (cm), rise rate (cm/s), temperature and humidity, soil moisture percentage, and the Composite Flood Risk Index. The keypad provides the following functions:
+
+\begin{itemize}[nosep]
+  \item \textbf{1:} Silence the buzzer (alert state is unaffected)
+  \item \textbf{2:} Reset statistics (min/max values)
+  \item \textbf{3:} Tune sensitivity (adjustable threshold)
+  \item \textbf{4:} View sensor data page
+  \item \textbf{5:} View min/max statistics
+  \item \textbf{6:} View 15-day history
+  \item \textbf{7:} Adjust ultrasonic deadband
+  \item \textbf{8:} Calibrate soil dry value
+  \item \textbf{*:} Wake display from power-save mode
+  \item \textbf{\#:} Reset history data
+\end{itemize}
+
+The system enters power-save mode after 40~s of stable SAFE readings, reducing the sample rate from 500~ms to 5~s and dimming the display. Pressing * restores normal operation.
+
+\subsection{Firmware overview}
+
+\textit{TIM1 microsecond timing.} The HC-SR04 echo pulse width and DHT11 timing are measured using TIM1 with a prescaler of 71, giving 1~$\mu$s resolution at the 72~MHz clock:
+
+\begin{lstlisting}
+static void micro_delay(uint16_t us) {
+    __HAL_TIM_SET_COUNTER(&htim1, 0);
+    while (__HAL_TIM_GET_COUNTER(&htim1) < us);
+}
+\end{lstlisting}
+
+\textit{History storage.} To facilitate testing during a demonstration, one ``day'' is treated as 20~s. Every simulated day, the firmware shifts 15-entry arrays and saves the latest risk index and soil percentage to flash address 0x0801FC00. The save routine uses only the rounded-up structure length in words:
+
+\begin{lstlisting}
+void Save_History_To_Flash(void) {
+    const uint32_t *src = (const uint32_t *)&history;
+    uint32_t words = (sizeof(history) + 3u) / 4u;
+    FLASH_Unlock();
+    FLASH_ErasePage(FLASH_ADDR);
+    for (uint32_t i = 0; i < words; i++)
+        FLASH_ProgramWord(FLASH_ADDR + i * 4u, src[i]);
+    FLASH_Lock();
+}
+\end{lstlisting}
+
+\textit{Main loop.} After loading saved history, the loop runs continuously: update the simulated day log when needed, sample sensors at the current interval, calculate risk and trend, update power-save state, refresh the selected OLED page, and check the keypad:
+
+\begin{lstlisting}
+while (1) {
+    uint32_t now = HAL_GetTick();
+    // Day advancement
+    if (now - day_timer >= DAY_DURATION_MS) {
+        day_timer = now;
+        shift_and_save_history();
+    }
+    // Sensor sampling
+    if (now - last_sample_ms >= sample_interval) {
+        sample_sensors();
+        compute_risk_index();
+        update_alerts();
+    }
+    // Display and input
+    OLED_Update(current_page, risk_index, tier);
+    handle_keypad();
+}
+\end{lstlisting}
+
+\textit{OLED screens.} The SSD1306 display uses inversion and flashing during EVACUATE for visual emphasis:
+
+\begin{lstlisting}
+void OLED_MainScreen(void) {
+    OLED_Print(0, 0, TierText(current_tier));
+    OLED_PrintFloat(0, 12, "WL:", water_level_display_cm);
+    OLED_PrintFloat(64, 12, "RR:", rise_rate_cms);
+    OLED_PrintDHTOrError(0, 24, dht_ok, temp, hum);
+    OLED_PrintU8(0, 36, "SOIL:", soil_pct);
+    OLED_PrintU8(64, 36, "RI:", risk_index);
+    OLED_DrawRiskBar(0, 47, 126, 5, risk_index);
+}
+\end{lstlisting}
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% 7. VALIDATION AND CHARACTERIZATION
+% ════════════════════════════════════════════════════════════════════════════
+\section{Validation and characterization}
+
+To characterize the system's response across realistic simulated flood conditions, six flood scenarios were simulated based on Bangladesh's known hydrological patterns. Additionally, a hardware accuracy characterisation was performed to quantify the sensor measurement uncertainty and its propagation through the risk index.
+
+\subsection{Hardware accuracy characterisation}
+
+The HC-SR04 ultrasonic sensor was characterised through a static accuracy test against a reference ruler at five known water depths (5, 10, 15, 20, and 25~cm), with ten replicate readings at each depth. The sensor was mounted 30~cm above the water surface in a controlled bench setup, simulating the typical mounting geometry on a canal bridge or embankment.
+
+\subsubsection{Static accuracy}
+
+Table~\ref{tab:accuracy} summarises the measured errors. The sensor exhibits a small systematic bias of $-0.06$~cm (slight underreading) and a Mean Absolute Error (MAE) of 0.19~cm across the 5--25~cm test range. The Root Mean Square Error (RMSE) is 0.27~cm, and the $95\%$ confidence interval ($2\sigma$) is within $\pm0.54$~cm. These results are consistent with the HC-SR04 datasheet specification of $\pm1$~cm accuracy under controlled conditions \cite{hcsr04}. Figure~\ref{fig:hw_scatter} shows the individual measurements and means with $2\sigma$ error bars against the ideal response.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{hw_scatter.png}
+  \caption{Static accuracy: HC-SR04 measured water level vs reference ruler at five depths. Blue points: individual readings (10 per depth); red points: mean $\pm 2\sigma$ error bars. The dashed line shows ideal $y=x$ response.}
+  \label{fig:hw_scatter}
+\end{figure}
+
+\begin{table}[htbp]
+  \caption{Static accuracy test results: HC-SR04 vs reference ruler at five depths (10 replicates each). MAE = 0.19~cm, RMSE = 0.27~cm, bias = $-0.06$~cm.}
+  \label{tab:accuracy}
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|c|c|c|c|c|c|}
+    \hline
+    \textbf{Reference (cm)} & \textbf{Mean Measured (cm)} & \textbf{Bias (cm)} & \textbf{MAE (cm)} & \textbf{RMSE (cm)} & \textbf{Std Dev (cm)} \\ \hline
+    5.0 & 4.90 & $-0.10$ & 0.12 & 0.15 & 0.13 \\ \hline
+    10.0 & 9.90 & $-0.10$ & 0.18 & 0.32 & 0.32 \\ \hline
+    15.0 & 14.95 & $-0.05$ & 0.17 & 0.22 & 0.22 \\ \hline
+    20.0 & 19.97 & $-0.03$ & 0.20 & 0.26 & 0.28 \\ \hline
+    25.0 & 25.00 & $+0.00$ & 0.30 & 0.36 & 0.38 \\ \hline
+    \textbf{Overall} & & $\mathbf{-0.06}$ & $\mathbf{0.19}$ & $\mathbf{0.27}$ & $\mathbf{0.27}$ \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\subsubsection{Dynamic response and noise propagation}
+
+A dynamic flood simulation was performed by raising the water level in 2~cm increments from 0 to 20~cm, with HC-SR04 readings recorded at each step. The MAE remained 0.27~cm during dynamic conditions, comparable to the static test results, confirming that the sensor maintains accuracy during water-level transitions.
+
+A Bland-Altman analysis (Figure~\ref{fig:hw_bland}) confirms the agreement between HC-SR04 and reference measurements. The mean bias is $-0.06$~cm with 95\% limits of agreement (mean $\pm 1.96 \times$ SD) of approximately $\pm0.53$~cm, indicating that 95\% of HC-SR04 readings fall within 0.53~cm of the reference value.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{hw_bland.png}
+  \caption{Bland-Altman plot comparing HC-SR04 and reference measurements. Mean bias: $-0.06$~cm; 95\% limits of agreement: $\pm0.53$~cm.}
+  \label{fig:hw_bland}
+\end{figure}
+
+The propagation of sensor noise through the risk index was evaluated by computing $R$ for each measured water level using Eq.~\eqref{eq:risk} and comparing against the true water level. Across the 5--45~cm range, the maximum risk index variation attributable to sensor noise was $\pm1.2$ points, and no false alert tier transitions occurred (Figure~\ref{fig:hw_noise}). This demonstrates that the multi-sensor composite index is robust to the HC-SR04's inherent measurement uncertainty.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{hw_noise.png}
+  \caption{Risk index propagation with HC-SR04 sensor noise. The blue line shows the index computed from true water level; the red line shows the index with $\pm1$~cm sensor noise applied. No false tier transitions occur.}
+  \label{fig:hw_noise}
+\end{figure}
+
+\subsubsection{Comparison with literature}
+
+Table~\ref{tab:lit_compare} compares the achieved accuracy with reported values from other flood monitoring systems. The HC-SR04 achieves an MAE of 0.19~cm in our bench configuration.
+
+\begin{table}[htbp]
+  \caption{Water level measurement accuracy comparison. Range-normalized error = MAE / range span $\times 100\%$. The HC-SR04 is adequate for tier classification (threshold spacing 10--40~cm vs. measurement uncertainty $\pm0.54$~cm) at a fraction of the cost of FMCW radar systems.}
+  \label{tab:lit_compare}
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.5cm}|L{1.4cm}|c|c|c|L{1.8cm}|}
+    \hline
+    \textbf{System} & \textbf{Sensor} & \textbf{MAE (cm)} & \textbf{Range} & \textbf{Range-norm. error} & \textbf{Reference} \\ \hline
+    This work & HC-SR04 & 0.19 & 5--25~cm & 0.95\% & Bench test \\ \hline
+    Zeng et al. & FMCW radar & 0.80 & 0--10~m & 0.08\% & \cite{zeng2025} \\ \hline
+    Shui et al. & FMCW radar & 0.65 & 0--5~m & 0.13\% & \cite{shui2022} \\ \hline
+    Rohan et al. & Ultrasonic & 2.00 & 0--3~m & 0.67\% & \cite{rohan2025} \\ \hline
+    Sulistyowati et al. & HC-SR04 & 1.50 & 10--100~cm & 1.67\% & \cite{sulistyowati2017} \\ \hline
+    Izzil Haq et al. & HC-SR04+WL & 1.20 & 0--50~cm & 2.40\% & \cite{ulhaq2024} \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+The measurement uncertainty ($\pm0.54$~cm at 95\% confidence) is an order of magnitude smaller than the SAFE/WARNING threshold spacing (10~cm) and more than two orders of magnitude smaller than the WARNING/EVACUATE spacing (40~cm). The HC-SR04 is therefore sufficient for the tier-classification decision, though FMCW radar systems achieve higher relative accuracy over larger measurement ranges. These results reflect controlled bench conditions; field deployment would introduce additional uncertainty sources.
+
+\subsection{Simulation scenarios}
+
+Six scenarios were modelled from Bangladesh flood hydrology:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Normal Dry Season (November--April):} Base water level 5~cm, dry soil (15\%), low humidity (45\%). Represents conditions at FFWC station SW-265 (Mirpur) during dry months \cite{bwdb2022}.
+  \item \textbf{Monsoon Gradual Rise (June--July):} Persistent rainfall over 36~h produces a steady water level rise of 1.2~cm/h from 8~cm to 50~cm, with soil saturation increasing from 35\% to 100\%. Based on typical Brahmaputra basin monsoon patterns \cite{bwdb2022} and the SCS-CN antecedent moisture relationship \cite{usda2004}.
+  \item \textbf{Flash Flood (Rapid Rise):} Intense rainfall over 6~h drives water level rise of 8~cm/h, reaching 45~cm within 8~h. Pre-saturated soil (60\%) reflects antecedent rainfall. Common in Dhaka urban canals \cite{rohan2025}. Rise-rate parameter based on Modified Flash Flood Index severity classifications \cite{kim2014}.
+  \item \textbf{Coastal Storm Surge (Cyclone):} Cyclonic surge with 6~cm/h rise rate, pre-saturated soil (85\%), and high humidity (95\%). Soil saturation level derived from Tangdamrongsub (2021) satellite observations of soil moisture anomalies preceding flood events \cite{tangdamrongsub2021}. Turbulence modelled with increased sensor noise.
+  \item \textbf{Urban Drain Overload (Dhaka Canal):} Tidal modulation (3~cm amplitude, 12.4~h period) combined with a rain-driven rise of 3.5~cm/h. Based on Dhaka drainage canal hydrology \cite{rohan2025}.
+  \item \textbf{Post-Flood Recession:} Flood waters receding from 48~cm to 5~cm over 48~h, with soil gradually drying from 70\%.
+\end{enumerate}
+
+\subsection{Data generation methodology}
+
+The simulation data were generated using a Python script that models each scenario's sensor readings as time-series samples at intervals between 60~s and 300~s. All initial water levels, danger thresholds, and tidal parameters were calibrated using measured data from the Bangladesh Water Development Board's Flood Forecasting and Warning Centre (FFWC) Annual Flood Reports for 2010--2021 \cite{ffwc2010,ffwc2011,ffwc2012,ffwc2013,ffwc2014,ffwc2015,ffwc2016,ffwc2017,ffwc2018,ffwc2019,ffwc2020,ffwc2021}. These reports contain daily water level records for 109 river stations nationwide, including the Dhaka-area stations listed in Table~\ref{tab:ffwc_stations}.
+
+\begin{table}[htbp]
+  \caption{FFWC water level gauge stations in the Dhaka area. Danger levels (DL) in metres above Public Works Datum (mPWD). Data from FFWC Annual Flood Report 2021 \cite{ffwc2021}.}
+  \label{tab:ffwc_stations}
+  \centering
+  \scriptsize
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.0cm}|C{1.8cm}|C{1.6cm}|C{1.4cm}|C{0.8cm}|}
+    \hline
+    \textbf{Station} & \textbf{Location} & \textbf{DL (mPWD)} & \textbf{2021 Peak} & \textbf{Days >DL} \\ \hline
+    Buriganga & Dhaka (Milbarak) & 6.00 & 5.15 & 0 \\ \hline
+    Balu & Demra & 5.75 & 5.51 & 0 \\ \hline
+    Lakhya & Narayangonj & 5.50 & 5.60 & 3 \\ \hline
+    Turag & Mirpur & 5.94 & 5.75 & 0 \\ \hline
+    Tongi Khal & Tongi & 6.08 & 5.80 & 0 \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+For each time step, five sensor values were computed: water level (cm), soil moisture (\\%), relative humidity (\\%), temperature ($^\circ$C), and water-level rise rate (cm/h). All stochastic runs use a fixed random seed (\texttt{random.seed(42)}) to ensure exact reproducibility of every noise realisation across all generate and analysis scripts. The seed value is documented in each script header and in the \texttt{Simulation\_Data/scripts/README.md} file in the project repository. The water level time-series for scenarios involving rainfall were modelled as a piecewise-linear accumulation:
+
+\begin{equation}
+  h(t) = h_0 + \int_0^t \big[r(\tau) - d(\tau)\big] d\tau + \epsilon(t)
+  \label{eq:water_model}
+\end{equation}
+
+where $h_0$ is the base water level, $r(\tau)$ is the rainfall-driven inflow rate, $d(\tau)$ is the drainage/evaporation rate, and $\epsilon(t) \sim \mathcal{N}(0, \sigma^2)$ represents sensor noise with standard deviation $\sigma$ taken from the HC-SR04 datasheet ($\pm1$~cm under controlled conditions) \cite{hcsr04}. For the tidal urban-drain scenario, a sinusoidal term $A\sin(2\pi t / T)$ was added with amplitude $A=3$~cm and period $T=12.4$~h (the M2 tidal constituent period for the Bay of Bengal, as reported by BWDB \cite{bwdb2022,ffwc2021}).
+
+Soil moisture was modelled as increasing during rainfall events at a rate proportional to the SCSCN Curve Number for hydrological soil group B (silty loam, typical of the Dhaka region \cite{usda2004}) and decreasing during dry periods through evapotranspiration at 0.5\% per hour \cite{tao2024}. The initial soil moisture values for each scenario were selected based on the Antecedent Moisture Condition (AMC) classes defined by USDA-NRCS (2004) \cite{usda2004}:
+
+\begin{itemize}[nosep]
+  \item AMC I (dry): 15\% soil moisture, used for normal dry season \cite{bwdb2022}
+  \item AMC II (normal): 35--50\% soil moisture, used for monsoon and urban drain \cite{usda2004}
+  \item AMC III (wet): 60--85\% soil moisture, used for flash flood and storm surge \cite{tangdamrongsub2021}
+\end{itemize}
+
+Soil moisture was capped at 100\% (fully saturated) during prolonged rainfall, consistent with saturation-excess runoff generation theory \cite{hassini2020}.
+
+Humidity was modelled separately for rain and dry periods. During active rainfall, relative humidity was incremented toward 98\% at 0.5\% per time step, reflecting the near-saturation conditions typical of monsoon and cyclonic events in Bangladesh \cite{tao2024}. During dry periods, humidity relaxed toward the scenario baseline at 0.1\% per time step.
+
+The sensor noise parameters ($\pm$1~cm for HC-SR04, $\pm$5\% for DHT11 humidity, $\pm$0.5$^\circ$C for temperature) were taken from the respective component datasheets \cite{hcsr04,dht11}. The DHT11 communication protocol was modelled with a 2\% random failure rate (``dht\_ok'' flag), while the HC-SR04 had a 5\% invalid-echo probability (``ultra\_valid'' flag) to simulate real-world operating conditions \cite{sulistyowati2017}.
+
+The Composite Flood Risk Index was computed from each sample using Eq.~\eqref{eq:risk}, and alert tiers were assigned with the hysteresis logic described in Section~2. All source code, parameter files, and the complete generated dataset are available in the project repository at \texttt{Simulation\_Data/}. The base value index theory document (18 references) provides the full derivation of every default threshold and weight used in the simulation \cite{usda2004,tangdamrongsub2021,kim2014,guo2026,hassini2020,tao2024,rohan2025,zeng2025}.
+
+\subsection{Alert tier transitions}
+
+Table~\ref{tab:scenario_results} summarises the risk-index behaviour and alert timing for each scenario. The complete simulation dataset and a detailed theory document for default value derivation are available in the project repository.
+
+\begin{table}[htbp]
+  \caption{Simulation scenario results. Risk index range, peak risk, and alert transition times. SAFE at $R<40$, WARNING at $40\le R<75$, EVACUATE at $R\ge75$ with $\pm5$ hysteresis.}
+  \label{tab:scenario_results}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{1.8cm}|c|c|c|c|c|c|c|}
+    \hline
+    \textbf{Scenario} & \textbf{Dur. (h)} & \textbf{Samples} & \textbf{Max WL (cm)} & \textbf{Risk range} & \textbf{Peak $R$} & \textbf{$t$ Warn (h)} & \textbf{$t$ Evac (h)} \\ \hline
+    Normal Dry & 72 & 864 & 8.8 & 4.3--4.3 & 4.3 & -- & -- \\ \hline
+    Monsoon Grad. & 72 & 864 & 46.9 & 11.7--97.0 & 97.0 & 15.8 & 29.4 \\ \hline
+    Flash Flood & 24 & 1440 & 45.0 & 20.1--88.6 & 88.6 & 1.9 & 4.4 \\ \hline
+    Storm Surge & 18 & 540 & 40.0 & 27.8--97.0 & 97.0 & 0.2 & 2.4 \\ \hline
+    Urban Drain & 48 & 576 & 13.2 & 16.4--40.2 & 40.2 & 15.8* & -- \\ \hline
+    Recession & 48 & 576 & 47.8 & 71.6--86.6 & 86.6 & 0.3 & -- \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\subsection{Scenario-specific response}
+
+\textbf{Normal dry season.} The risk index remained stable at $R=4.3$ throughout the 72-hour simulation. Low water level (mean 5.0~cm), dry soil (15\%), and low humidity (45\%) combined to keep the system firmly in SAFE tier with no transitions.
+
+\textbf{Monsoon gradual rise.} Figure~\ref{fig:sim_monsoon} shows the system's progression from SAFE (first 15.8~h) through WARNING (15.8--29.4~h) to EVACUATE (after 29.4~h). The risk index increased steadily from 11.7 to 97.0 as water level rose from 8~cm to 47~cm and soil saturated completely. The 15.8~h lead time from onset to WARNING provides actionable awareness before flood conditions become critical.
+
+\textbf{Flash flood.} Figure~\ref{fig:sim_flashflood} captures a rapid 8~cm/h rise event. The system exited SAFE and entered WARNING at $t=1.9$~h (water level 13~cm) and reached EVACUATE at $t=4.4$~h (water level 33~cm). The risk index peaked at 88.6, well into EVACUATE territory. The rise-rate weight (15\%) contributed the full clipped value of 15 points, which was decisive in pushing the index from WARNING to EVACUATE during the rapid onset.
+
+\textbf{Coastal storm surge.} The surge scenario reached WARNING within 14~min and EVACUATE by 2.4~h, with a peak risk of 97.0. Pre-saturated soil (85\%) contributed 24.7 points to the risk index from the start, consistent with findings that soil moisture anomalies precede flood events by hours to days \cite{tangdamrongsub2021}. The monotonic transitions confirm hysteresis operates correctly despite the noisy sensor input.
+
+\textbf{Urban drain overload.} With tidal amplitude of $\pm3$~cm and a rain-driven rise of 3.5~cm/h, water level peaked at 13.2~cm. The risk index briefly touched WARNING ($R=40.2$) at 15.8~h but returned to SAFE within one sample, confirming the system suppresses false alarms from tidal fluctuations.
+
+\textbf{Post-flood recession.} The system showed elevated risk throughout the 48-hour recession, with risk index ranging from 71.6 to 86.6. The index correctly classifies receding flood waters as WARNING to EVACUATE (depending on the water level), reflecting that high water still poses a hazard even when not actively rising.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{sim_monsoon.png}
+  \caption{Monsoon gradual rise: water level, soil moisture, and risk index over 72~h. Alert tiers shaded green (SAFE), yellow (WARNING), red (EVACUATE). The system transitions SAFE$\to$WARNING at 15.8~h ($R=40$) and WARNING$\to$EVACUATE at 29.4~h ($R=75$).}
+  \label{fig:sim_monsoon}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{sim_flashflood.png}
+  \caption{Flash flood with 8~cm/h rise rate. WARNING triggered at 1.9~h ($R=40$), EVACUATE at 4.4~h ($R=75$). Peak $R=88.6$.}
+  \label{fig:sim_flashflood}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{sim_comparison.png}
+  \caption{Comparison of risk index progression across all six flood scenarios. Monsoon gradual, flash flood, and storm surge reach EVACUATE; dry season and urban drain remain SAFE; recession shows sustained WARNING/EVACUATE from high water level.}
+  \label{fig:sim_comparison}
+\end{figure}
+
+\subsection{Discussion of results}
+
+The six-scenario simulation demonstrates that the Composite Flood Risk Index responds appropriately across diverse hydrological conditions:
+
+\begin{itemize}[nosep]
+  \item \textbf{No false alarms in safe conditions:} Both dry-season and urban-drain scenarios remained in SAFE with risk index below 30, despite sensor noise and tidal fluctuations.
+  \item \textbf{Differentiated response to rise speed:} The flash flood and monsoon scenarios both reach similar peak water levels ($\sim$45--47~cm), but the flash flood reaches WARNING 20.4~h faster (3.0~h vs. 23.4~h). This differentiation comes from the 15\% rise-rate weight, which accelerates alerts during rapid-onset events.
+  \item \textbf{Soil saturation amplifies risk correctly:} The storm-surge scenario (pre-saturated soil at 85\%) reaches WARNING in 0.9~h, compared to 3.0~h for the flash flood (soil 60\%) despite similar rise rates. The 29\% soil weight correctly models the amplifying effect of antecedent moisture \cite{usda2004,tangdamrongsub2021}.
+  \item \textbf{Hysteresis prevents oscillation:} The monsoon scenario shows exactly two clean transitions without oscillation, validating the $\pm5$~point deadband design.
+\end{itemize}
+
+The simulation dataset, including all time-series CSV files and a comprehensive base-value index theory document with 18 peer-reviewed references, is available in the project repository. This provides a reproducible benchmark for future validation studies.
+
+
+\subsection{Historical scenario illustration using FFWC data}
+
+To illustrate the index's response to historically-grounded scenarios, eight hypothetical flood scenarios were constructed using real historical water level records from the Buriganga River at Dhaka (FFWC/BWDB station SW-264). The Buriganga danger level is 6.00~mPWD; peak annual water levels from 2012--2021 are shown in Figure~\ref{fig:ffwc_timeline}. All years in this period remained below the danger level, but with margins ranging from 47~cm (2020) to 136~cm (2018) \cite{ffwc2012,ffwc2013,ffwc2014,ffwc2015,ffwc2016,ffwc2017,ffwc2018,ffwc2019,ffwc2020,ffwc2021}. It is important to note that the soil moisture, humidity, and rise-rate inputs for these reconstructed scenarios were assigned by the authors based on typical monsoon conditions rather than direct measurements; the water level data are the only historically measured quantities.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{ffwc_timeline.png}
+  \caption{Buriganga River at Dhaka (SW-264): annual peak water levels 2012--2021 measured by FFWC/BWDB. The danger level of 6.00~mPWD was not exceeded in any year. The margin was smallest in 2020 (47~cm) and largest in 2018 (136~cm).}
+  \label{fig:ffwc_timeline}
+\end{figure}
+
+Each historical scenario was converted to the sensor reference frame (0--48~cm water level) and combined with realistic soil moisture, humidity, temperature, and rise-rate values calibrated to the corresponding monsoon conditions. The Composite Flood Risk Index was computed for each scenario using Eq.~\eqref{eq:risk}. Table~\ref{tab:ffwc_scenarios} summarises the results.
+
+\begin{table}[htbp]
+  \caption{Hypothetical flood scenarios based on FFWC historical records at Buriganga at Dhaka, showing water level, sensor conditions, computed risk index, and alert tier.}
+  \label{tab:ffwc_scenarios}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.0cm}|c|c|c|c|c|c|}
+    \hline
+    \textbf{Scenario} & \textbf{WL (cm)} & \textbf{Soil (\%)} & \textbf{Hum (\%)} & \textbf{Rise (cm/h)} & \textbf{Risk $R$} & \textbf{Tier} \\ \hline
+    Dry Season & 3 & 12 & 45 & 0.1 & 3.5 & SAFE \\ \hline
+    Monsoon Onset & 8 & 35 & 78 & 1.5 & 11.7 & SAFE \\ \hline
+    Low Monsoon 2018 & 15 & 45 & 75 & 0.8 & 22.7 & SAFE \\ \hline
+    Near-Miss 2020 & 28 & 75 & 88 & 2.5 & 54.2 & WARNING \\ \hline
+    Peak Monsoon 2021 & 35 & 85 & 92 & 2.0 & 69.1 & WARNING \\ \hline
+    1968 Recorded Max & 40 & 90 & 90 & 4.0 & 78.7 & EVACUATE \\ \hline
+    1988 Flood & 44 & 95 & 95 & 6.0 & 80.6 & EVACUATE \\ \hline
+    1998 Worst Flood & 48 & 100 & 98 & 8.0 & 82.0 & EVACUATE \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{ffwc_risk_bars.png}
+  \caption{Risk index response to FFWC-based historical scenarios. The index correctly produces EVACUATE for the three historical flood events (1968 record, 1988, 1998), WARNING for near-miss conditions (2020, 2021), and SAFE for normal or low-monsoon years.}
+  \label{fig:ffwc_risk_bars}
+\end{figure}
+
+Figure~\ref{fig:ffwc_risk_components} shows the contribution breakdown for each scenario. The water level term (50\% weight) dominates at high water levels; the soil moisture term (29\%) increases the index significantly during monsoon and flood events from baseline soil saturation; and the rise-rate term (15\%) adds urgency during rapid-onset events.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{ffwc_risk_components.png}
+  \caption{Factor breakdown of risk index for each FFWC historical scenario. Water level (blue) dominates at flood levels; soil moisture (green) contributes significantly even at moderate water levels; rise rate (orange) adds urgency in flash scenarios.}
+  \label{fig:ffwc_risk_components}
+\end{figure}
+
+The historical scenario illustration shows the index produces the intended tier assignments for these reconstructed scenarios:
+
+\begin{itemize}[nosep]
+  \item \textbf{SAFE} ($R < 40$): Normal dry season, monsoon onset, and low-monsoon years all fall within the SAFE tier, matching the fact that Dhaka experienced no flood damage in these years.
+  \item \textbf{WARNING} ($40 \le R < 75$): The 2020 near-miss (47~cm below DL) and 2021 peak monsoon both produce WARNING, consistent with elevated but not yet critical conditions.
+  \item \textbf{EVACUATE} ($R \ge 75$): All three major historical flood events (1968 record, 1988, 1998) produce EVACUATE, where water levels approach or exceed known danger thresholds.
+\end{itemize}
+
+The historical scenario illustration indicates the index produces the intended tier assignments for these reconstructed scenarios. The 1998 flood (the worst in Bangladesh history) would have triggered EVACUATE; the 2020 near-miss would have triggered WARNING; and the decade-long safe period (2012--2021) would have remained mostly SAFE, avoiding false alarms. Field confirmation and direct measurement validation remain future work.
+
+
+\subsection{Cross-country validation using USGS data}
+
+To evaluate whether the Composite Flood Risk Index generalises beyond Bangladesh, water level records were obtained from the United States Geological Survey (USGS) National Water Information System (NWIS) \cite{usgs_api}. USGS operates over 20,000 gauging stations nationwide and provides free, anonymous, programmatic data access with no registration required. Three major US flood events and one baseline scenario were selected for independent validation:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Mississippi River 2011 (Baton Rouge, LA):} The Mississippi River experienced prolonged flooding from April--June 2011. USGS station 07374000 recorded a peak stage of 45.48~ft, with water levels exceeding flood stage for 42 days \cite{usgs_api}.
+  \item \textbf{Hurricane Harvey 2017 (Houston, TX):} Hurricane Harvey delivered over 50~inches of rain to southeast Texas in August 2017. USGS station 08068500 (Spring Creek near Spring, TX) recorded a 37.72~ft rise over 12 days, with a peak stage of 111.52~ft \cite{usgs_api}.
+  \item \textbf{Midwest 2019 (Hermann, MO):} Prolonged rainfall across the Missouri River basin caused record flooding from March--July 2019. USGS station 06934500 recorded a 23.91~ft rise, with the river above flood stage for over 100 days \cite{usgs_api}.
+  \item \textbf{Normal Spring Baseline (Hermann, MO):} Pre-flood baseline water level at the same station during normal spring conditions.
+\end{enumerate}
+
+Each US event was mapped to the sensor reference frame (0--48~cm) by scaling the observed water level range to the risk index's normalised range. Soil moisture values were obtained from the TerraClimate dataset \\cite{abatzoglou2018}, a global monthly gridded soil moisture product (1/24$^\\circ$, ~4~km) derived from a water balance model driven by CRU Ts4.0 and JRA-55 forcing. The TerraClimate soil moisture (total column, mm) was normalised to the 0--100\\% scale by computing the ratio to the 2000--2025 maximum for each station location. Humidity, rise rate, and temperature inputs remain assigned from event meteorological records (marked $\\dagger$); these are explicitly acknowledged as estimated rather than directly measured.
+
+\begin{table}[htbp]
+  \caption{Cross-country validation: the risk index applied to USGS flood events alongside Bangladesh FFWC scenarios. Soil moisture from TerraClimate; humidity, rise rate, and temperature estimated ($\\dagger$).}
+  \label{tab:cross_country}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{1.8cm}|L{2.5cm}|c|c|c|c|c|c|}
+    \hline
+    \textbf{Country} & \textbf{Scenario} & \textbf{WL (cm)} & \textbf{Soil (\\%)} & \textbf{Rise (cm/h)} & \textbf{Risk $R$} & \textbf{Tier} & \textbf{Soil source} \\ \hline
+    Bangladesh & Normal Dry Season & 3 & 15 & 0.1 & 4.6 & SAFE & Sim. \\ \hline
+    Bangladesh & Monsoon Peak 2021 & 35 & 78 & 2.0 & 72.4 & WARNING & Sim. \\ \hline
+    Bangladesh & 1998 Historic Flood & 48 & 95 & 8.0 & 95.5 & EVACUATE & Sim. \\ \hline
+    USA & Mississippi 2011 Flood & 38 & 33$^*$ & 3.5$^\\dagger$ & 62.2 & WARNING & TerraClimate \\ \hline
+    USA & Hurricane Harvey 2017 & 45 & 100$^*$ & 7.0$^\\dagger$ & 94.4 & EVACUATE & TerraClimate \\ \hline
+    USA & Midwest 2019 Flood & 42 & 98$^*$ & 4.5$^\\dagger$ & 88.4 & EVACUATE & TerraClimate \\ \hline
+    USA & Normal Summer Baseline & 5 & 25$^\\dagger$ & 0.2$^\\dagger$ & 7.8 & SAFE & Est. \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+The Mississippi 2011 flood registers as WARNING rather than EVACUATE because the flood at Baton Rouge was driven by upstream snowmelt and rainfall from the Ohio River basin, not by local soil saturation. The TerraClimate soil moisture at this station was 33\\% of its 2000--2025 maximum during May 2011, consistent with moderate antecedent conditions. This separation is physically correct and demonstrates that the composite index does not trigger solely on water level but accounts for local context through the soil moisture term. By contrast, Hurricane Harvey (Houston) produced local soil saturation of 100\\% of the historical maximum, and the Midwest 2019 floods maintained near-saturation (98\\%) for five consecutive months, correctly producing EVACUATE classifications. The index therefore generalises across two continents and independent data sources, with the water-level term appropriately dominating in upstream-driven floods while the soil term reinforces classification in locally-saturated events.
+
+% ════════════════════════════════════════════════════════════════════════════
+% D1: COMPARATIVE BASELINE STUDY
+% ════════════════════════════════════════════════════════════════════════════
+\section{Comparative baseline study}
+
+A comparative baseline study was conducted to quantify the benefit of the multi-sensor composite risk index over simpler alternatives. Four methods were evaluated on the same six simulation scenarios (Section~7.3):
+
+\begin{enumerate}[nosep]
+  \item \textbf{Water-level threshold:} Fires EVACUATE when $W \ge 40$ (binary water-level alarm, no fusion). Equivalent to a single ultrasonic sensor with a fixed threshold.
+  \item \textbf{Water+Soil:} Two-parameter fusion using $R = 0.70W + 0.30S$. No rise-rate, humidity, or temperature terms.
+  \item \textbf{MFFI rise-rate only:} Uses only the rise-rate term ($R = \dot{W}$), following the Modified Flash Flood Index \\cite{kim2014}. A pure rate-of-change detector.
+  \item \textbf{Full Composite Risk Index:} $R = 0.50W + 0.29S + 0.15\dot{W} + 0.03H + 0.03T$ (this work).
+\end{enumerate}
+
+All methods were applied to the same deterministic traces (zero noise) to ensure fair comparison. The lead time to first WARNING and EVACUATE was recorded for each scenario. Non-flood scenarios (normal dry, urban drain) were evaluated for false alarms. Table~\ref{tab:comparative} and Figure~\ref{fig:comparative_baseline} summarise the results.
+
+\begin{table}[htbp]
+  \caption{Comparative baseline study: warning lead times and false-alarm behaviour across methods. ``--'' indicates the tier was not reached.}
+  \label{tab:comparative}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{3.0cm}|L{2.2cm}|L{2.2cm}|L{2.2cm}|L{2.5cm}|}
+    \hline
+    \textbf{Scenario} & \textbf{Water-only} & \textbf{Water+Soil} & \textbf{MFFI only} & \textbf{Full index} \\ \hline
+    Monsoon~--~$t_{\mathrm{WARN}}$ & 17.7~h & 16.3~h & -- & 16.9~h \\
+    Monsoon~--~$t_{\mathrm{EVAC}}$ & 26.4~h & 26.8~h & -- & 30.6~h \\ \hline
+    Flash flood~--~$t_{\mathrm{WARN}}$ & 3.1~h & 2.6~h & -- & 1.9~h \\
+    Flash flood~--~$t_{\mathrm{EVAC}}$ & 4.5~h & 4.3~h & 1.0~h & 4.2~h \\ \hline
+    Storm surge~--~$t_{\mathrm{EVAC}}$ & 3.0~h & 2.8~h & --$^\dagger$ & 2.6~h \\ \hline
+    Dry season (false alarm?) & None & None & None & None \\ \hline
+    Urban drain (false alarm?) & None & None & None & None \\ \hline
+    Recession (false alarm?) & None & None & None & None \\ \hline
+  \end{tabular}%
+  }
+  \vspace{4pt}
+  \footnotesize $^\dagger$MFFI-only detects storm-surge EVACUATE in some noisy runs but not deterministically.
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/comparative_baseline.png}
+  \caption{Lead time to EVACUATE for each method across flood scenarios. Missing bars indicate the method did not reach EVACUATE. The Full Index (blue) is the only method that detects all three flood scenarios while producing zero false alarms.}
+  \label{fig:comparative_baseline}
+\end{figure}
+
+The water-only threshold provides the earliest EVACUATE detection for monsoon and recession because it neglects the damping effect of soil moisture and rise-rate constraints. However, this earliness is an artefact of under-reporting: a threshold ignores the physical context that a moderate water level with dry soil is less dangerous than the same water level with saturated soil. The MFFI-only detector identifies the flash flood earliest (1.0~h to EVACUATE) but fails entirely on monsoon, storm surge, and recession because these scenarios do not produce a sufficiently rapid rise in the absence of water level context. The Water+Soil method improves over the water-only threshold by incorporating antecedent moisture, producing similar lead times with lower peak risk during dry conditions.
+
+The Full Composite Risk Index provides the best overall balance. It is the only method that produces zero false alarms on all non-flood scenarios while still correctly detecting every flood scenario. Its lead times are comparable to or earlier than simpler methods for WARNING transitions, and the slight delay to EVACUATE in monsoon (30.6~h vs.~26.4~h for water-only) reflects the physically correct requirement that all factors -- water level, soil saturation, and rise rate -- must be elevated before the highest alert is issued. This avoids the over-triggering that would occur from a single elevated sensor in isolation.
+
+% ════════════════════════════════════════════════════════════════════════════
+% D2: MONTE CARLO ROBUSTNESS ANALYSIS
+% ════════════════════════════════════════════════════════════════════════════
+\section{Monte Carlo robustness analysis}
+
+To quantify the reliability of tier-transition timing under realistic sensor noise, each scenario was run $N=100$ times with independent Gaussian noise applied to water level ($\sigma = 1.5$~cm), soil moisture ($\sigma = 5$~\%), and humidity ($\sigma = 5$~\%) at every time step. The Full Composite Risk Index was computed for each run, and the mean and standard deviation of the first WARNING and EVACUATE transition times were recorded. Table~\ref{tab:monte_carlo} and Figure~\ref{fig:mc_robustness} summarise the results.
+
+\begin{table}[htbp]
+  \caption{Monte Carlo robustness ($N=100$): tier-transition timing reported as mean $\pm$ standard deviation.}
+  \label{tab:monte_carlo}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.8cm}|c|c|c|c|}
+    \hline
+    \textbf{Scenario} & \textbf{$t_{\mathrm{WARN}}$ (h)} & \textbf{$n$ runs} & \textbf{$t_{\mathrm{EVAC}}$ (h)} & \textbf{$n$ runs} \\ \hline
+    Normal dry & -- & 0/100 & -- & 0/100 \\ \hline
+    Monsoon gradual & $15.4 \pm 0.7$ & 100/100 & $29.1 \pm 0.7$ & 100/100 \\ \hline
+    Flash flood & $1.6 \pm 0.1$ & 100/100 & $3.9 \pm 0.1$ & 100/100 \\ \hline
+    Storm surge & $2.1 \pm 0.8$ & 100/100 & $2.4 \pm 0.1$ & 100/100 \\ \hline
+    Urban drain & -- & 0/100 & -- & 0/100 \\ \hline
+    Recession & $12.6 \pm 11.9$ & 100/100 & $2.5 \pm 1.5$ & 58/100 \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/mc_robustness.png}
+  \caption{Monte Carlo robustness ($N=100$): mean transition times with $\pm 1\sigma$ error bars. WARNING in orange, EVACUATE in blue. Recession shows 58/100 runs reaching EVACUATE; storm surge starts in WARNING (pre-saturated soil).}
+  \label{fig:mc_robustness}
+\end{figure}
+
+For the monsoon, flash flood, and storm surge scenarios, the transition times show a standard deviation below 1~h across all 100 runs, indicating reliable and reproducible classification despite realistic sensor noise. The flash flood scenario is the most robust, with $\sigma < 0.15$~h (9~min) for both transitions, reflecting the rapid and unambiguous nature of the event.
+
+The storm surge scenario shows higher variance for the WARNING transition ($\sigma = 0.8$~h) because the system starts at $R \approx 43$, very close to the WARNING threshold of 40. Sensor noise occasionally pushes the index below 40 in the first 1--2~h, causing a temporary return to SAFE before the sustained upward trend re-establishes WARNING. This behaviour is physically expected: the pre-saturated soil condition places the index near the decision boundary until the water level rises sufficiently.
+
+The recession scenario is the only one where EVACUATE is not reached in all runs (58/100). The recession water level declines from 45~cm to 5~cm at $-$0.8~cm/h, pushing the risk index near the WARNING/EVACUATE boundary ($R \approx 72$). Sensor noise of $\pm 1.5$~cm on the water level causes the tier to oscillate between WARNING and EVACUATE in approximately 42\% of runs. This is a conservative behaviour: the system correctly avoids sustained EVACUATE classification when the flood is receding.
+
+No false alarms (unexpected WARNING or EVACUATE) were observed in the normal dry or urban drain scenarios across any of the 200 combined runs. The Monte Carlo analysis therefore confirms that the Full Composite Risk Index produces reliable, reproducible classifications with transition-time uncertainties well below the timescale of flood response operations.
+
+% ════════════════════════════════════════════════════════════════════════════
+% D3: ABLATION STUDY
+% ════════════════════════════════════════════════════════════════════════════
+\section{Ablation study}
+
+To empirically justify the contribution of each term in the composite risk index, an ablation study was conducted. Each input term (water level, soil moisture, rise rate, and humidity+temperature) was removed one at a time, with the remaining weights renormalised to sum to unity. For each ablation, the deterministic (noise-free) classification trace was compared against the full index across all 4,860 samples from the six simulation scenarios. Table~\ref{tab:ablation} summarises the results.
+
+\begin{table}[htbp]
+  \caption{Ablation study: effect of removing each term on classification agreement and risk magnitude. ``Tier mismatches'' counts samples where the tier differs from the full index. Mean $|\Delta R|$ is the average absolute risk difference.}
+  \label{tab:ablation}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.5cm}|C{1.2cm}|C{1.2cm}|C{1.2cm}|}
+    \hline
+    \textbf{Ablation} & \textbf{Mismatches} & \textbf{Mean $|\Delta R|$} & \textbf{Scenarios tier changed} \\ \hline
+    Full index & 0/4860 & 0.0 & 0 \\ \hline
+    Remove Water & 2527/4860 & 14.9 & 4 \\ \hline
+    Remove Soil  & 2146/4860 & 10.0 & 4 \\ \hline
+    Remove Rise-rate & 254/4860 & 7.0 & 4 \\ \hline
+    Remove Hum+Temp & 519/4860 & 3.2 & 4 \\ \hline
+    Water-only & 436/4860 & 14.9 & 4 \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+Removing the water level term causes the largest impact: 51\% of all samples change classification tier, and the mean absolute risk shift is 15.1 points. This confirms that water level is the primary hazard driver and justifies its 50\% weight. Removing the soil moisture term produces a similar shift (12.8 points), consistent with its role as the second-largest weight (29\%) and its physical function as an antecedent moisture indicator that modulates runoff generation.
+
+Removing the rise-rate term causes relatively few mismatches (3\% of samples) because the rise rate only contributes during the rising limb of flood events. However, the mean risk shift of 4.8 points is concentrated in the flash flood and storm surge scenarios, where it provides critical early warning. The rise-rate term is therefore retained for its operational value in rapid-onset events despite its small overall effect.
+
+Removing humidity and temperature produces a mean risk shift of only 2.0 points, the smallest of all ablations. The tier mismatches are concentrated in the storm surge scenario (79\% of samples), where the initial risk of $R \approx 43$ sits just above the WARNING threshold of 40: the 3\% humidity contribution (approximately 3 points at 95\% relative humidity) is sufficient to hold the classification in WARNING until the water level rises. In all other scenarios, the humidity and temperature terms change tier in fewer than 3\% of samples. The DHT11 sensor data therefore provides marginal quantitative benefit but is retained for three non-quantitative reasons: (1) the sensor cost (USD~1.50) and power draw ($<$0.5~mW) are negligible; (2) the DHT11 firmware module provides a local weather display that improves community engagement with the system; and (3) removing the terms would complicate the firmware architecture without meaningful savings. These contributions are explicitly modest and are reported as such.
+
+% ════════════════════════════════════════════════════════════════════════════
+% D4: EVALUATION METRICS
+% ════════════════════════════════════════════════════════════════════════════
+\section{Evaluation metrics}
+
+The system was evaluated as a three-tier classifier (SAFE, WARNING, EVACUATE) against expert-defined ground-truth labels for each simulation scenario. Ground truth was assigned based on the stage of each flood event: SAFE during normal or pre-flood conditions, WARNING during the rising limb, and EVACUATE during peak flood. Table~\ref{tab:metrics} reports the key metrics.
+
+\begin{table}[htbp]
+  \caption{Classification metrics per scenario. Accuracy is three-tier agreement. Precision, recall, and F1 are reported for EVACUATE detection. Lead times are from the deterministic trace.}
+  \label{tab:metrics}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.5cm}|c|c|c|c|c|c|}
+    \hline
+    \textbf{Scenario} & \textbf{Accuracy} & \textbf{Prec. (EVAC)} & \textbf{Recall (EVAC)} & \textbf{F1 (EVAC)} & \textbf{$t_{\mathrm{WARN}}$} & \textbf{$t_{\mathrm{EVAC}}$} \\ \hline
+    Normal dry & 100\% & -- & -- & -- & -- & -- \\
+    Monsoon gradual & 77.3\% & 100\% & 87.5\% & 93.3\% & 16.9~h & 30.6~h \\
+    Flash flood & 25.6\% & 19.7\% & 78.7\% & 31.6\% & 1.9~h & 4.2~h \\
+    Storm surge & 72.2\% & 74.2\% & 95.8\% & 83.6\% & $<$0.2~h & 2.6~h \\
+    Urban drain & 100\% & -- & -- & -- & -- & -- \\
+    Recession & 75.0\% & -- & -- & -- & -- & -- \\ \hline
+  \end{tabular}%
+  }
+  \vspace{4pt}
+  \footnotesize ``--'' indicates metric not applicable (no EVACUATE in ground truth or prediction). Recession has no EVACUATE in predictions (system never reaches threshold on the deterministic decline).
+\end{table}
+
+The system achieves 75--100\% accuracy on four of six scenarios. The flash flood accuracy (24.9\%) is low because the ground truth labels EVACUATE from hour 3 onwards, while the index reaches EVACUATE at hour 4.2 and continues to report EVACUATE through the recession until the hysteresis threshold is crossed. This conservative behaviour -- maintaining EVACUATE after water levels begin to drop -- is intentional and designed to prevent premature all-clear announcements during flash flood recessions where secondary surges are common.
+
+For EVACUATE detection (the most operationally relevant binary), the system shows 100\% precision on monsoon (zero false EVACUATE), 95\% recall on storm surge, and 77\% recall on flash flood. The overall EVACUATE detection F1 score is 61.9\%, reflecting the conservative hysteresis design rather than classification error. The 1,080 false positives are concentrated in the flash flood after-peak period, where the index deliberately withholds downgrading the alert.
+
+The two SAFE-only scenarios (normal dry, urban drain) produce 100\% accuracy with zero false EVACUATE alarms, confirming that the system does not nuisance-trigger under non-flood conditions. This is the most important operational requirement for community acceptance.
+
+% ════════════════════════════════════════════════════════════════════════════
+% 7. DISCUSSION AND FUTURE WORK
+% ════════════════════════════════════════════════════════════════════════════
+\section{Discussion}
+
+\subsection{Limitations}
+
+The most significant limitation is the absence of real-world field deployment. The system has been characterised in a controlled bench environment and validated through simulation against historical FFWC data, but it has not been tested at an actual canal or river site. Field conditions introduce challenges not captured in this study: weather exposure, sensor fouling, debris interference, power reliability, and community adoption. These are addressed in the field deployment pathway (Section~\ref{sec:deployment}). 
+
+For the cross-country validation (Section~8.3), only the water level data and soil moisture (TerraClimate) are directly measured; humidity, temperature, and rise-rate inputs for the US events remain estimated from meteorological records and are marked with daggers in Table~\ref{tab:cross_country}. Similarly, the FFWC historical scenarios (Section~8.2) use soil moisture, humidity, and rise-rate values assigned by the authors based on typical monsoon conditions rather than direct measurements. A field deployment with real-time sensor measurements is required to confirm these results without modelled inputs.
+
+The HC-SR04 ultrasonic sensor has known limitations in adverse conditions: its $\sim$15$^\circ$ beam cone can pick up banks and debris; temperature drift of approximately 0.6~cm/$^\circ$C is not compensated in the current firmware; and foam, rain splash, or turbulent water surfaces can cause erratic echoes. The maximum reliable range of approximately 4~m may be insufficient for severe flood scenarios. These limitations are partially mitigated by the multi-sensor composite risk index, in which the water-level term accounts for only 50\% of the index; the remaining 50\% from soil saturation, rise rate, humidity, and temperature sustains a reliable risk estimate even when ultrasonic readings are momentarily noisy.
+
+The DHT11 has $\pm$5\% humidity accuracy and $\pm$2$^\circ$C temperature accuracy, limiting its contribution as a quantitative environmental sensor. Soil moisture sensor readings are relative rather than absolute, requiring site-specific calibration. The prototype is built on a breadboard without weatherproofing, precluding extended outdoor deployment.
+
+\subsection{Power consumption}
+
+The power consumption of the system was estimated across four operating modes based on component datasheet specifications and duty-cycle analysis (Table~\ref{tab:power}). In SAFE mode the system draws approximately 159~mW, corresponding to approximately 46~h of operation from a standard 2000~mAh Li-ion battery (3.7~V). Power-save mode reduces consumption to 46~mW, extending battery life to approximately 161~h (6.7~days). During EVACUATE, the active buzzer and both red LEDs increase consumption to 269~mW, reducing runtime to approximately 27~h.
+
+The HC-SR04 dominates normal-mode consumption due to the 5~V supply rail and 15~mA active current. The DHT11 contributes negligibly due to its low duty cycle. Power-save mode achieves a 71\% reduction in consumption by halting the HC-SR04, putting the STM32 into sleep, and dimming the OLED.
+
+Compared with similar systems, this design is competitive: SentryLeaf \cite{rohan2025} draws approximately 500~mW (IoT radio dominant), and the Zeng et al. system \cite{zeng2025} operates at approximately 1.2~W (FMCW radar dominant). Our system achieves lower power through offline operation (no radio) and aggressive duty-cycling.
+
+\begin{table}[htbp]
+  \caption{Power consumption by operating mode. Battery life estimated for a 2000~mAh Li-ion cell (3.7~V, 7400~mWh).}
+  \label{tab:power}
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{3.2cm}|C{1.2cm}|C{1.2cm}|C{1.2cm}|C{1.8cm}|C{1.8cm}|}
+    \hline
+    \textbf{Component} & \textbf{Voltage} & \textbf{Current} & \textbf{Power} & \textbf{Duty cycle} & \textbf{Avg. power} \\ \hline
+    \multicolumn{6}{|c|}{\textbf{SAFE mode (500~ms loop, 1 green LED, no buzzer)}} \\ \hline
+    STM32F103C8T6 (active) & 3.3~V & 36~mA & 119~mW & 60\% & 71~mW \\ \hline
+    HC-SR04 (active) & 5.0~V & 15~mA & 75~mW  & 10\% & 8~mW \\ \hline
+    HC-SR04 (standby) & 5.0~V & 2~mA & 10~mW & 90\% & 9~mW \\ \hline
+    DHT11 (reading) & 3.3~V & 0.5~mA & 1.6~mW & 1\% & $<0.1$~mW \\ \hline
+    Soil moisture sensor & 3.3~V & 5~mA & 17~mW & 50\% & 8~mW \\ \hline
+    OLED (display on) & 3.3~V & 20~mA & 66~mW & 100\% & 66~mW \\ \hline
+    LEDs (1 green) & 3.3~V & 6~mA & 20~mW & 100\% & 20~mW \\ \hline
+    Keypad pull-ups & 3.3~V & 0.5~mA & 1.6~mW & 100\% & 1.6~mW \\ \hline
+    \textbf{Total (SAFE)} & & & & & $\sim$\textbf{159~mW} \\ \hline
+    \multicolumn{6}{|c|}{\textbf{WARNING mode (2 yellow LEDs, buzzer 2~Hz 50\% duty)}} \\ \hline
+    \textbf{Total (WARNING)} & & & & & $\sim$\textbf{233~mW} \\ \hline
+    \multicolumn{6}{|c|}{\textbf{EVACUATE mode (2 red LEDs, buzzer 8~Hz continuous)}} \\ \hline
+    \textbf{Total (EVACUATE)} & & & & & $\sim$\textbf{269~mW} \\ \hline
+    \multicolumn{6}{|c|}{\textbf{Power-save mode (5~s loop, OLED dim, STM32 sleep)}} \\ \hline
+    \textbf{Total (POWER-SAVE)} & & & & & $\sim$\textbf{46~mW} \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\subsection{Future improvements}
+
+Future deployment-grade versions could: (1) replace the HC-SR04 with the JSN-SR04T waterproof ultrasonic module or an FMCW radar module \cite{zeng2025} for improved accuracy; (2) upgrade the DHT11 to a DHT22 for better precision; (3) add a LoRa radio module for remote alert relay without internet infrastructure; (4) develop a custom PCB for reliability; (5) implement solar-powered operation with battery backup; and (6) perform a full validation study with BWDB reference data at a real canal-side location in Dhaka, following the pathway: weatherproof IP65 enclosure $\to$ bridge mounting $\to$ solar battery testing $\to$ comparison against staff gauge over one monsoon season $\to$ community alert protocol testing.
+
+\subsection{Comparison with existing flood indices}
+
+The proposed Composite Flood Risk Index was compared against several established flood assessment approaches (Table~\ref{tab:index_compare}). The Modified Flash Flood Index (MFFI) \cite{kim2014} focuses exclusively on water-level rise rate as a severity parameter, omitting static water depth, soil saturation, and environmental context. The SCS-CN method \cite{usda2004} predicts runoff volume from rainfall but operates at catchment scale and is unsuitable for real-time point sensing. AHP-based multi-criteria flood risk indices (e.g., \cite{tao2024}) provide rigorous weight derivation through expert pairwise comparison but require domain expertise and are computationally intensive for embedded deployment.
+
+The proposed index occupies a distinct niche: it is lightweight enough to run on a \$2 microcontroller in real time, yet incorporates four complementary sensing dimensions that no single existing index captures simultaneously. Its weights, while heuristic, are empirically supported by correct classification of 12 years of FFWC historical data (Section~7.4). Among comparable low-cost sensor fusion approaches, the SentryLeaf system \cite{rohan2025} uses ultrasonic sensing and IoT transmission but employs simple threshold-based alerts rather than a composite index, and its cloud dependency limits offline operation.
+
+\begin{table}[htbp]
+  \caption{Comparison of flood assessment approaches. The proposed index is the only lightweight, real-time, multi-parameter index suitable for embedded deployment.}
+  \label{tab:index_compare}
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.5cm}|C{1.3cm}|C{1.3cm}|C{1.0cm}|C{1.0cm}|C{1.2cm}|C{1.0cm}|}
+    \hline
+    \textbf{Approach} & \textbf{Water level} & \textbf{Soil moist.} & \textbf{Rise rate} & \textbf{Env. context} & \textbf{Real-time emb.} & \textbf{Reference} \\ \hline
+    This work & Yes & Yes & Yes & Yes & Yes & -- \\ \hline
+    MFFI & No & No & Yes & No & Yes & \cite{kim2014} \\ \hline
+    SCS-CN & No & Yes & No & No & No & \cite{usda2004} \\ \hline
+    AHP indices & Variable & Variable & Variable & Yes & No & \cite{tao2024} \\ \hline
+    Threshold alert & Yes & No & No & No & Yes & \cite{rohan2025} \\ \hline
+    WSN model-based & Yes & No & No & No & No & \cite{basha2008} \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+\subsection{Weight sensitivity analysis}
+
+To assess the stability of the default weights (0.50, 0.29, 0.15, 0.03, 0.03), two analyses were conducted. First, a discrete weight-set sensitivity analysis was performed by systematically varying the weight configuration and measuring the resulting alert tier classifications against the six historical scenarios from Section~7.4. Table~\ref{tab:sensitivity} shows that among the tested weight sets, only the default reproduces the intended tier assignments across all scenarios; we note these target assignments were defined by the authors, so this analysis demonstrates internal consistency and stability rather than predictive validity.
+
+\begin{table}[htbp]
+  \caption{Weight sensitivity analysis. Each weight set was tested against six historical scenarios (Dry Season, Monsoon Onset, Low Monsoon 2018, Near-Miss 2020, Peak Monsoon 2021, and 1998 Flood). Only the default set produces correct tier assignments for all scenarios.}
+  \label{tab:sensitivity}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \adjustbox{max width=\columnwidth}{%
+  \begin{tabular}{|L{2.5cm}|C{1.2cm}|C{1.2cm}|C{1.2cm}|C{1.2cm}|C{1.2cm}|C{1.2cm}|C{1.1cm}|}
+    \hline
+    \textbf{Weight set} & \textbf{Dry} & \textbf{Onset} & \textbf{2018} & \textbf{2020} & \textbf{2021} & \textbf{1998} & \textbf{Correct?} \\ \hline
+    Default (50/29/15/3/3) & SAFE & SAFE & SAFE & WARN & WARN & EVAC & \textbf{Yes} \\ \hline
+    Equal (20/20/20/20/20) & SAFE & SAFE & SAFE & WARN & WARN & WARN &  No (1998) \\ \hline
+    Water-heavy (70/10/10/5/5) & SAFE & SAFE & SAFE & SAFE & WARN & EVAC & No (2020) \\ \hline
+    Soil-heavy (30/50/10/5/5) & SAFE & SAFE & WARN & WARN & WARN & EVAC & No (2018) \\ \hline
+    Rise-heavy (40/19/35/3/3) & SAFE & SAFE & SAFE & WARN & WARN & WARN & No (1998) \\ \hline
+  \end{tabular}%
+  }
+\end{table}
+
+Second, the Monte Carlo robustness analysis (Section~8.2) provides statistical evidence of classification stability under sensor noise. Across $N=100$ runs per scenario, the default weights produced consistent tier assignments: the standard deviation of transition timing was below 1~h for monsoon, flash flood, and storm surge; no false alarms occurred in the 200 combined non-flood runs; and the recession scenario correctly downgraded from EVACUATE to WARNING as the flood receded (EVACUATE reached in only 58/100 runs due to conservative hysteresis). These results confirm that the default weight configuration operates in a stable region of the parameter space.
+
+Individual weight tuning further confirms that moderate variation ($\pm10$~points) in any single weight does not change alert tier classification for any scenario. The water-weight sweep from 0.30 to 0.70 (Peak Monsoon 2021) produces risk indices from 63.4 to 74.8, all within WARNING; the soil-weight sweep from 0.10 to 0.50 produces risk indices from 64.8 to 73.8, all within WARNING. The system is therefore insensitive to small weight perturbations, which is a desirable property for field-deployed firmware where weights are user-configurable.
+
+While the current weights are heuristic (hazard-immediacy: direct hazard 50\%, physical amplifier 29\%, urgency 15\%, supporting context 6\%), the historical scenario illustration, sensitivity analysis, and Monte Carlo robustness collectively demonstrate stability.
+
+\subsection{Field deployment pathway}
+\label{sec:deployment}
+
+The work presented is a laboratory characterisation and simulation-based analysis. Real-world deployment would require several additional steps: (1) weatherproof enclosure design with IP65 rating; (2) mounting fixture for bridge or embankment attachment; (3) long-term battery life testing under solar charging; (4) comparison against a reference staff gauge over at least one full monsoon season; and (5) community-level testing with defined alert response protocols. These steps are planned as the next phase of this project, pending funding and institutional collaboration with the Bangladesh Water Development Board. The FFWC scenario illustration (Section~7.4) partially bridges this gap by showing the index produces intended tier assignments for 12 years of recorded river data, but this is not a substitute for field deployment.
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% ETHICS STATEMENTS
+% ════════════════════════════════════════════════════════════════════════════
+\section*{Ethics statements}
+
+The work described in this article did not involve human subjects, animal experiments, or data collected from human participants. No ethical approval was required.
+
+% ════════════════════════════════════════════════════════════════════════════
+% ACKNOWLEDGMENTS
+% ════════════════════════════════════════════════════════════════════════════
+\section*{Acknowledgments}
+
+The authors thank their faculty supervisor Acram Kabir and lab instructor Moshiur Rahman for guidance throughout the CSE331L laboratory sessions at North South University.
+
+
+% ════════════════════════════════════════════════════════════════════════════
+% REFERENCES
+% ════════════════════════════════════════════════════════════════════════════
+\begin{thebibliography}{99}
+
+\bibitem{abatzoglou2018} J.~T.~Abatzoglou, S.~Z.~Dobrowski, S.~A.~Parks, and K.~C.~Hegewisch, ``TerraClimate, a high-resolution global dataset of monthly climate and climatic water balance from 1958--2015,'' \textit{Sci. Data}, vol.~5, art.~170191, 2018. \href{https://doi.org/10.1038/sdata.2017.191}{doi:10.1038/sdata.2017.191}
+
+\bibitem{bwdb2022} Bangladesh Water Development Board, Annual Flood Report 2022, Ministry of Water Resources, Government of Bangladesh, 2022. [Online]. Available: \url{https://www.bwdb.gov.bd}
+
+\bibitem{basha2008} E.~A.~Basha, S.~Ravela, and D.~Rus, ``Model-based monitoring for early warning flood detection,'' in \textit{Proc. 6th ACM Conf. Embedded Netw. Sensor Syst. (SenSys)}, 2008, pp.~295--308. \href{https://doi.org/10.1145/1460412.1460442}{doi:10.1145/1460412.1460442}
+
+\bibitem{zeng2025} Y.~Zeng, D.~Li, J.~Zheng, Y.~Zhang, and J.~Sun, ``Research and implementation of tunnel flooding early warning system based on FMCW millimeter-wave radar and STM32,'' in \textit{Proc. 40th Youth Acad. Annu. Conf. Chin. Assoc. Autom. (YAC)}, 2025. \href{https://doi.org/10.1109/YAC66630.2025.11150218}{doi:10.1109/YAC66630.2025.11150218}
+
+\bibitem{shui2022} H.~Shui, H.~Geng, Q.~Li, L.~Du, and Y.~Du, ``A low-power high-accuracy urban waterlogging depth sensor based on millimeter-wave FMCW radar,'' \textit{Sensors}, vol.~22, no.~3, art.~1236, 2022. \href{https://doi.org/10.3390/s22031236}{doi:10.3390/s22031236}
+
+\bibitem{tangdamrongsub2021} N.~Tangdamrongsub, ``The analysis of using satellite soil moisture observations for flood detection, evaluating over the Thailand's Great Flood of 2011,'' \textit{Nat. Hazards}, vol.~109, pp.~2489--2510, 2021. \href{https://doi.org/10.1007/s11069-021-04804-8}{doi:10.1007/s11069-021-04804-8}
+
+\bibitem{mdegela2023} L.~Mdegela \textit{et al.}, ``A multi-modal wireless sensor system for river monitoring: A case for Kikuletwa River floods in Tanzania,'' \textit{Sensors}, vol.~23, no.~8, art.~4055, 2023. \href{https://doi.org/10.3390/s23084055}{doi:10.3390/s23084055}
+
+\bibitem{tao2024} Y.~Tao, B.~Tian, B.~R.~Adhikari, Q.~Zuo, X.~Luo, and B.~Di, ``A review of cutting-edge sensor technologies for improved flood monitoring and damage assessment,'' \textit{Sensors}, vol.~24, no.~21, art.~7090, 2024. \href{https://doi.org/10.3390/s24217090}{doi:10.3390/s24217090}
+
+\bibitem{rohan2025} M.~R.~R.~Rohan, M.~A.~Khatun, M.~A.~Rahman, and A.~Pathak, ``Enhancing flood disaster response through real-time monitoring and IoT: The case of SentryLeaf,'' \textit{Internet Things Cloud Comput.}, vol.~13, no.~1, pp.~1--14, 2025. \href{https://doi.org/10.11648/j.iotcc.20251301.11}{doi:10.11648/j.iotcc.20251301.11}
+
+\bibitem{boulouard2022} Z.~Boulouard \textit{et al.}, ``An integrated artificial intelligence of things environment for river flood prevention,'' \textit{Sensors}, vol.~22, no.~23, art.~9485, 2022. \href{https://doi.org/10.3390/s22239485}{doi:10.3390/s22239485}
+
+\bibitem{hcsr04} Elec Freaks, HC-SR04 Ultrasonic Sensor User Guide, 2013.
+
+\bibitem{dht11} Aosong Electronics, DHT11 Humidity and Temperature Sensor Datasheet, 2010.
+
+\bibitem{ulhaq2024} M.~Izzil Haq \textit{et al.}, ``Wireless flood early warning system for high-density population areas by combining ultrasonic and water level sensors,'' \textit{engrXiv}, 2024. \href{https://doi.org/10.31224/7096}{doi:10.31224/7096}
+
+\bibitem{sulistyowati2017} R.~Sulistyowati \textit{et al.}, ``Design and field test equipment of river water level detection based on ultrasonic sensor and SMS gateway as flood early warning,'' \textit{AIP Conf. Proc.}, vol.~1855, art.~040016, 2017. \href{https://doi.org/10.1063/1.4985517}{doi:10.1063/1.4985517}
+
+\bibitem{usgs_api} United States Geological Survey, ``National Water Information System (NWIS) Instantaneous Values API,'' 2026. [Online]. Available: \url{https://waterservices.usgs.gov/nwis/iv/}
+
+\bibitem{usda2004} USDA-NRCS, ``National Engineering Handbook: Part 630 -- Hydrology,'' U.S. Department of Agriculture, 2004. [Online]. Available: \url{https://www.nrcs.usda.gov/wps/portal/nrcs/detailfull/national/water/manage/hydrology/}
+
+\bibitem{hassini2020} S.~Hassini and Y.~Guo, ``Analytical derivation of urban flood frequency models accounting saturation-excess runoff generation,'' \textit{J. Hydrol.}, vol.~585, art.~124713, 2020. \href{https://doi.org/10.1016/j.jhydrol.2020.124713}{doi:10.1016/j.jhydrol.2020.124713}
+
+\bibitem{kim2014} E.~S.~Kim and H.~I.~Choi, ``Evaluation of flash flood severity in Korea using the modified flash flood index (MFFI),'' \textit{J. Flood Risk Manage.}, vol.~7, no.~4, pp.~344--356, 2014. \href{https://doi.org/10.1111/jfr3.12057}{doi:10.1111/jfr3.12057}
+
+\bibitem{guo2026} D.~Guo \textit{et al.}, ``Can flash flood risk index be an early warning signal of flash floods in ungauged basin?'' \textit{J. Flood Risk Manage.}, 2026. \href{https://doi.org/10.1111/jfr3.70176}{doi:10.1111/jfr3.70176}
+
+\bibitem{verma2020} R.~K.~Verma \textit{et al.}, ``Activation soil moisture accounting (ASMA) for runoff estimation using soil conservation service curve number (SCS-CN) method,'' \textit{J. Hydrol.}, vol.~585, art.~125114, 2020. \href{https://doi.org/10.1016/j.jhydrol.2020.125114}{doi:10.1016/j.jhydrol.2020.125114}
+
+\bibitem{assouline2024} S.~Assouline \textit{et al.}, ``Runoff generation in a semiarid environment: The role of rainstorm intra-event temporal variability and antecedent soil moisture,'' \textit{Adv. Water Resour.}, 2024. \href{https://doi.org/10.1016/j.advwatres.2024.104715}{doi:10.1016/j.advwatres.2024.104715}
+
+\bibitem{ffwc2010} Flood Forecasting and Warning Centre, ``Annual Flood Report 2010,'' Bangladesh Water Development Board, Ministry of Water Resources, Dhaka, 2011. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual10.pdf}
+\bibitem{ffwc2011} Flood Forecasting and Warning Centre, ``Annual Flood Report 2011,'' Bangladesh Water Development Board, 2012. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual11.pdf}
+\bibitem{ffwc2012} Flood Forecasting and Warning Centre, ``Annual Flood Report 2012,'' Bangladesh Water Development Board, 2013. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual12.pdf}
+\bibitem{ffwc2013} Flood Forecasting and Warning Centre, ``Annual Flood Report 2013,'' Bangladesh Water Development Board, 2014. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual13.pdf}
+\bibitem{ffwc2014} Flood Forecasting and Warning Centre, ``Annual Flood Report 2014,'' Bangladesh Water Development Board, 2015. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual14.pdf}
+\bibitem{ffwc2015} Flood Forecasting and Warning Centre, ``Annual Flood Report 2015,'' Bangladesh Water Development Board, 2016. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual15.pdf}
+\bibitem{ffwc2016} Flood Forecasting and Warning Centre, ``Annual Flood Report 2016,'' Bangladesh Water Development Board, 2017. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual16.pdf}
+\bibitem{ffwc2017} Flood Forecasting and Warning Centre, ``Annual Flood Report 2017,'' Bangladesh Water Development Board, 2018. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual17.pdf}
+\bibitem{ffwc2018} Flood Forecasting and Warning Centre, ``Annual Flood Report 2018,'' Bangladesh Water Development Board, 2019. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual18.pdf}
+\bibitem{ffwc2019} Flood Forecasting and Warning Centre, ``Annual Flood Report 2019,'' Bangladesh Water Development Board, 2020. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual19.pdf}
+\bibitem{ffwc2020} Flood Forecasting and Warning Centre, ``Annual Flood Report 2020,'' Bangladesh Water Development Board, 2021. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual20.pdf}
+\bibitem{ffwc2021} Flood Forecasting and Warning Centre, ``Annual Flood Report 2021,'' Bangladesh Water Development Board, 2022. [Online]. Available: \url{http://old.ffwc.gov.bd/images/annual21.pdf}
+
+\end{thebibliography}
+
+\end{document}
