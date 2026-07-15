@@ -49,14 +49,10 @@ def compute_risk(water_cm, rise_cmh, soil, hum, temp=28):
     elif water_cm >= D_EVAC: W = 100
     else: W = 100 * (water_cm - D_SAFE) / (D_EVAC - D_SAFE)
     S = min(100, max(0, soil))
-    rise_cms = rise_cmh / 3600
-    V_MAX = 5.0
-    RR = min(100, max(0, 100 * abs(rise_cms) / V_MAX))
+    V_MAX = 5.0  # cm/h
+    RR = min(100, max(0, 100 * rise_cmh / V_MAX))
     H = min(100, max(0, 100 * (hum - 60) / 35))
-    T = 0
-    if temp > 35: T = 100
-    elif temp > 32: T = 50
-    elif temp < 15: T = 30
+    T = min(100, max(0, 100 * (temp - 20) / 20))
     R = 0.50 * W + 0.29 * S + 0.15 * RR + 0.03 * H + 0.03 * T
     return round(R, 1)
 
@@ -134,8 +130,7 @@ def make_component_breakdown():
         elif wl >= D_EVAC: W = 100
         else: W = 100 * (wl - D_SAFE) / (D_EVAC - D_SAFE)
         S = min(100, max(0, soil))
-        rise_cms = rise / 3600
-        RR = min(100, max(0, 100 * abs(rise_cms) / 5.0))
+        RR = min(100, max(0, 100 * rise / 5.0))
         H = min(100, max(0, 100 * (hum - 60) / 35))
         
         w_scores.append(W * 0.50)

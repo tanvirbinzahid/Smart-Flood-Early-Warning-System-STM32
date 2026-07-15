@@ -19,6 +19,59 @@ OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(OUTPUT_DIR, "datasets")
 os.makedirs(DATASET_DIR, exist_ok=True)
 
+
+class LeastSquaresTrend:
+    """Ring-buffer least-squares slope estimator.
+       Maintains a window of recent water-level readings and computes
+       the smoothed slope (cm/h) via linear regression.
+       Includes a deadband threshold to reject sensor noise.
+       Matches the 'least-squares trend engine' described in the paper.
+    """
+    def __init__(self, window=40, min_slope_threshold=1.0):
+        self.window = window
+        self.min_slope = min_slope_threshold  # cm/h — below this treat as 0
+        self.buffer = []
+
+    def add(self, wl_cm, t_hours):
+        self.buffer.append((t_hours, wl_cm))
+        if len(self.buffer) > self.window:
+            self.buffer.pop(0)
+
+    def slope_cm_per_h(self):
+        """Returns smoothed slope in cm/h. Only positive slopes (rising water)
+           are considered flood-relevant; receding water returns 0.
+           Slopes below min_slope are treated as zero (noise deadband).
+           Requires minimum net water level rise over the window."""
+        n = len(self.buffer)
+        if n < 8:
+            return 0.0
+        
+        # Check the net water level change over the window
+        # If water hasn't risen at least 1.5cm, any trend is noise
+        first_wl = self.buffer[0][1]
+        last_wl = self.buffer[-1][1]
+        net_rise = last_wl - first_wl
+        if net_rise < 1.5:  # cm — below this, treat drift as noise
+            return 0.0
+        
+        sum_x = sum(x for x, _ in self.buffer)
+        sum_y = sum(y for _, y in self.buffer)
+        sum_xx = sum(x*x for x, _ in self.buffer)
+        sum_xy = sum(x*y for x, y in self.buffer)
+        denom = n * sum_xx - sum_x * sum_x
+        if abs(denom) < 1e-10:
+            return 0.0
+        slope = (n * sum_xy - sum_x * sum_y) / denom
+        slope_cmh = slope * 3600
+        
+        # Only rising water contributes to flood risk
+        if slope_cmh <= 0:
+            return 0.0
+        # Noise deadband
+        if slope_cmh < self.min_slope:
+            return 0.0
+        return slope_cmh
+
 # ===================================================================
 # SCENARIO DEFINITIONS (based on real Bangladesh flood patterns)
 # ===================================================================
@@ -152,19 +205,18 @@ def compute_risk_index(water_cm, rise_rate_cm_per_h, soil_pct, humidity_pct, tem
 
     # Rise rate score: normalized to 5 cm/h max
     V_MAX = 5.0  # cm/h
-    RR = min(100, max(0, 100 * abs(rise_rate_cm_per_h) / V_MAX))
+    # Rise rate only contributes when water is actively rising ABOVE safe baseline
+    # Below safe threshold, any rise rate is pre-flood and not yet hazardous
+    if water_cm <= D_SAFE:
+        RR = 0
+    else:
+        RR = min(100, max(0, 100 * rise_rate_cm_per_h / V_MAX))
 
     # Humidity score: 60% = 0, 95%+ = 100
     H = min(100, max(0, 100 * (humidity_pct - 60) / 35))
 
-    # Temperature score: simplified - extremes increase risk
-    T = 0
-    if temp_c > 35:
-        T = 100
-    elif temp_c > 32:
-        T = 50
-    elif temp_c < 15:
-        T = 30
+    # Temperature score: 20°C → 0, 40°C → 100
+    T = min(100, max(0, 100 * (temp_c - 20) / 20))
 
     R = 0.50 * W + 0.29 * S + 0.15 * RR + 0.03 * H + 0.03 * T
     return round(R, 1)
@@ -205,9 +257,9 @@ def generate_scenario(scenario_key, params):
     hum = params['humidity_pct']
     temp = params['temp_c']
 
-    # Rise rate components
+    # Rise rate via smoothed least-squares trend engine
+    trend = LeastSquaresTrend()  # window=40, min_slope=1.0 cm/h
     rise_rate_cm_per_h = 0.0
-    prev_wl = wl
 
     # Rain event timing
     rain_active = False
@@ -218,8 +270,10 @@ def generate_scenario(scenario_key, params):
         timestamp = f"T+{t_hours:06.2f}h"
 
         # Rain event
-        if params.get('has_rain_event') and params.get('rain_start_hour'):
-            if t_hours >= params['rain_start_hour'] and t_hours <= params['rain_start_hour'] + params.get('rain_duration_hours', 0):
+        if params.get('has_rain_event'):
+            rain_start = params.get('rain_start_hour', 0)
+            rain_dur = params.get('rain_duration_hours', 0)
+            if t_hours >= rain_start and t_hours <= rain_start + rain_dur:
                 rain_active = True
             else:
                 rain_active = False
@@ -243,9 +297,21 @@ def generate_scenario(scenario_key, params):
             wl = max(5, min(wl, params.get('max_water_cm', 50)))
         elif scenario_key == "coastal_storm_surge":
             if rain_active:
-                surge_peak = params.get('water_rise_rate_cm_per_h', 6.0) * math.sin(math.pi * t_hours / params.get('rain_duration_hours', 12))
-                wl += max(0, surge_peak * interval_s / 3600)
-            wl = max(5, min(wl + random.gauss(0, params['water_level_noise_cm']), params.get('max_water_cm', 45)))
+                # Storm surge: monotonic rise to peak over 4h, then sustained
+                surge_duration = 4.0
+                if t_hours <= surge_duration:
+                    # Start from base level, rise linearly to max
+                    target_wl = (params['water_level_base_cm'] + 
+                                (params.get('max_water_cm', 40) - params['water_level_base_cm']) * 
+                                (t_hours / surge_duration))
+                else:
+                    target_wl = params.get('max_water_cm', 40)
+                wl = target_wl + random.gauss(0, params['water_level_noise_cm'] * 0.3)
+            else:
+                # Recession
+                wl -= 0.8 * interval_s / 3600
+                wl = max(params['water_level_base_cm'], wl + random.gauss(0, params['water_level_noise_cm'] * 0.2))
+            wl = max(5, min(wl, params.get('max_water_cm', 45)))
         elif scenario_key == "urban_drain_overload":
             tidal = 3.0 * math.sin(2 * math.pi * t_hours / 12.4)
             if rain_active:
@@ -268,9 +334,9 @@ def generate_scenario(scenario_key, params):
         else:
             hum = max(params['humidity_pct'], hum - 0.1)
 
-        # Rise rate calculation (convert to cm/h for normalization)
-        rise_rate_cm_per_h = (wl - prev_wl) / interval_s * 3600 if interval_s > 0 else 0
-        prev_wl = wl
+        # Rise rate via smoothed least-squares trend engine
+        trend.add(wl, t_hours)
+        rise_rate_cm_per_h = trend.slope_cm_per_h()
 
         # Compute risk index
         risk = compute_risk_index(wl, rise_rate_cm_per_h, soil, hum, temp)
@@ -400,15 +466,14 @@ if __name__ == "__main__":
     generate_all()
     print(f"\nDataset directory: {DATASET_DIR}")
 
-    # Print quick summary
+    # Print quick summary from the analysis file
     print("\n" + "="*65)
     print("SCENARIO SUMMARY")
     print("="*65)
-    for key in SCENARIOS:
-        samples = generate_scenario(key, SCENARIOS[key])
-        summary = compute_summary(samples)
-        analysis = analyze_scenario(samples, SCENARIOS[key])
-        print(f"\n{SCENARIOS[key]['name']}")
+    for key, params in SCENARIOS.items():
+        summary = compute_summary(generate_scenario(key, params))
+        analysis = analyze_scenario(generate_scenario(key, params), params)
+        print(f"\n{params['name']}")
         print(f"  Samples: {summary['samples']}")
         print(f"  Risk range: {summary['risk_min']} -> {summary['risk_max']} (avg: {summary['risk_avg']})")
         print(f"  Alert distribution: {summary['tier_counts']}")
